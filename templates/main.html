@@ -34,15 +34,10 @@
         <!-- New Request Section -->
         <section id="request-section" class="card">
     <form method="POST" action="/submit_request" class="form-row">
-        <input type="text" name="food_name" placeholder="Food/Recipe Name" required>
-        <input type="number" name="people" placeholder="Portions/People" min="1" required>
-        <input type="text" name="special" placeholder="Special Requests (allergies, diet, budget, etc)">
-        <select name="delivery">
-            <option value="delivery">Delivery</option>
-            <option value="pickup">Pickup</option>
-        </select>
-        <button type="submit" class="primary-btn">Submit</button>
-    </form>
+    <input type="text" name="user_input" required placeholder="What would you like to cook today?" autocomplete="off">
+    <button type="submit" class="primary-btn">Submit</button>
+</form>
+
 </section>
 
 
@@ -90,6 +85,28 @@
                     </td>
                 </tr>
                 {% endfor %}
+            <tr>
+                    <td>
+                        <input type="text" name="new_name" placeholder="Add new item...">
+                    </td>
+                    <td>
+                        <input type="number" min="0" name="new_quantity" placeholder="Qty">
+                    </td>
+                    <td>
+                        <select name="new_unit">
+                            <option value="units">Units</option>
+                            <option value="grams">Grams</option>
+                            <option value="kg">Kg</option>
+                            <option value="ml">Ml</option>
+                            <option value="l">L</option>
+                            <option value="other">Other...</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="date" name="new_expiry">
+                    </td>
+                    <td></td>
+                </tr>
             </tbody>
         </table>
     </div>
