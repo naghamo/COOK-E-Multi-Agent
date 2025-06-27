@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>COOK·E: Your Cooking Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body class="yellow-bg">
+    <nav class="navbar">
+        <div class="navbar-left">
+            <span class="nav-title">COOK·E</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#request-section">New Request</a></li>
+            <li><a href="#inventory-section">Home Inventory</a></li>
+            <li><a href="#old-requests-section">Old Requests</a></li>
+            <li><a href="/logout">Logout</a></li>
+        </ul>
+        <div class="navbar-right">
+            <span class="nav-user">👤 {{ user }}</span>
+        </div>
+    </nav>
+
+    <main>
+        <section class="welcome-box card">
+            <h1>COOK·E – Cognitive Organized Online Kitchen Expert</h1>
+            <p>
+                Welcome, professional chef!<br>
+                <b>What are we making today?</b>
+            </p>
+        </section>
+
+        <!-- New Request Section -->
+        <section id="request-section" class="card">
+            <form method="POST" action="/submit_request" class="form-row">
+                <input type="text" name="user_input" required placeholder="What would you like to cook today?" autocomplete="off">
+                <button type="submit" class="primary-btn">Submit</button>
+            </form>
+        </section>
+
+        <!-- Home Inventory Section -->
+        <section id="inventory-section" class="card">
+            <h2>Home Inventory</h2>
+            <form method="POST" action="/inventory">
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+    <tr>
+        <th>Item</th>
+        <th>Quantity</th>
+        <th>Unit</th>
+        <th>Earliest Expiry</th>
+    </tr>
+</thead>
+<tbody>
+    {% for row in inventory %}
+    <tr>
+        <td><input type="text" name="name" value="{{ row.name }}" required></td>
+        <td><input type="number" min="0" name="quantity" value="{{ row.quantity }}" required></td>
+        <td>
+            <select name="unit" onchange="toggleUnitInput(this)">
+                <option value="">Select</option>
+                <option value="pieces" {% if row.unit == "pieces" %}selected{% endif %}>pieces</option>
+                <option value="g" {% if row.unit == "g" %}selected{% endif %}>g</option>
+                <option value="kg" {% if row.unit == "kg" %}selected{% endif %}>kg</option>
+                <option value="l" {% if row.unit == "l" %}selected{% endif %}>l</option>
+                <option value="can" {% if row.unit == "can" %}selected{% endif %}>can</option>
+                <option value="bottle" {% if row.unit == "bottle" %}selected{% endif %}>bottle</option>
+                <option value="pack" {% if row.unit == "pack" %}selected{% endif %}>pack</option>
+                <option value="other" {% if row.unit not in ['pieces','g','kg','l','can','bottle','pack'] and row.unit %}selected{% endif %}>Other...</option>
+            </select>
+            <input type="text" name="unit" class="unit-input" placeholder="Enter unit" value="{% if row.unit not in ['pieces','g','kg','l','can','bottle','pack'] %}{{ row.unit }}{% endif %}" style="{% if row.unit not in ['pieces','g','kg','l','can','bottle','pack'] and row.unit %}display:inline{% else %}display:none{% endif %}">
+        </td>
+        <td><input type="date" name="expiry" value="{{ row.expiry }}" required></td>
+    </tr>
+    {% endfor %}
+    <!-- Add new row for adding more items -->
+    <tr>
+        <td><input type="text" name="name"></td>
+        <td><input type="number" min="0" name="quantity"></td>
+        <td>
+            <select name="unit" onchange="toggleUnitInput(this)">
+                <option value="">Select</option>
+                <option value="pieces">pieces</option>
+                <option value="g">g</option>
+                <option value="kg">kg</option>
+                <option value="l">l</option>
+                <option value="can">can</option>
+                <option value="bottle">bottle</option>
+                <option value="pack">pack</option>
+                <option value="other">Other...</option>
+            </select>
+            <input type="text" name="unit" class="unit-input" placeholder="Enter unit" style="display:none">
+        </td>
+        <td><input type="date" name="expiry"></td>
+    </tr>
+</tbody>
+
+
+
+                    </table>
+                </div>
+                <button type="submit" class="primary-btn">Save Changes</button>
+            </form>
+        </section>
+
+        <!-- Old Requests Section -->
+        <section id="old-requests-section" class="card">
+            <h2>Old Requests</h2>
+            <ul>
+                {% for req in old_requests %}
+                <li>
+                    <b>{{ req.food_name }}</b> for {{ req.people }}<br>
+                    <span class="text-muted">({{ req.date }})</span>
+                </li>
+                {% else %}
+                <li>No old requests yet.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <!-- Result/Confirmation Section -->
+        {% if result %}
+        <section id="result-section" class="card highlight">
+            <h2>Result &amp; Confirmation</h2>
+            <h3>Shopping Cart</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Brand</th>
+                            <th>Qty</th>
+                            <th>Unit Price</th>
+                            <th>Total Price</th>
+                            <th>Product Code</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in result.cart %}
+                        <tr>
+                            <td>{{ item.name }}</td>
+                            <td>{{ item.brand }}</td>
+                            <td>{{ item.qty }}</td>
+                            <td>{{ item.unit_price }}</td>
+                            <td>{{ item.total_price }}</td>
+                            <td>{{ item.code }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="total"><b>Total: {{ result.total_price }}</b></p>
+            <form method="POST" action="/confirm_order">
+                <button type="submit" class="primary-btn">Confirm &amp; Pay</button>
+            </form>
+        </section>
+        {% endif %}
+    </main>
+ <script>
+    function toggleUnitInput(select) {
+        var input = select.parentElement.querySelector('.unit-input');
+        if (select.value === "other") {
+            input.style.display = "inline";
+            input.required = true;
+        } else {
+            input.value = select.value;
+            input.style.display = "none";
+            input.required = false;
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('select[name="unit"]').forEach(function(sel) {
+            toggleUnitInput(sel);
+        });
+    });
+    </script>
+</body>
+</html>
