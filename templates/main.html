@@ -33,76 +33,69 @@
 
         <!-- New Request Section -->
         <section id="request-section" class="card">
-            <form method="POST" action="/submit_request" class="form-row">
-                <input type="text" name="user_input" required placeholder="What would you like to cook today?" autocomplete="off">
-                <button type="submit" class="primary-btn">Submit</button>
-            </form>
-        </section>
+    <form method="POST" action="/submit_request" class="form-row">
+        <input type="text" name="food_name" placeholder="Food/Recipe Name" required>
+        <input type="number" name="people" placeholder="Portions/People" min="1" required>
+        <input type="text" name="special" placeholder="Special Requests (allergies, diet, budget, etc)">
+        <select name="delivery">
+            <option value="delivery">Delivery</option>
+            <option value="pickup">Pickup</option>
+        </select>
+        <button type="submit" class="primary-btn">Submit</button>
+    </form>
+</section>
+
 
         <!-- Home Inventory Section -->
         <section id="inventory-section" class="card">
             <h2>Home Inventory</h2>
             <form method="POST" action="/inventory">
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-    <tr>
-        <th>Item</th>
-        <th>Quantity</th>
-        <th>Unit</th>
-        <th>Earliest Expiry</th>
-    </tr>
-</thead>
-<tbody>
-    {% for row in inventory %}
-    <tr>
-        <td><input type="text" name="name" value="{{ row.name }}" required></td>
-        <td><input type="number" min="0" name="quantity" value="{{ row.quantity }}" required></td>
-        <td>
-            <select name="unit" onchange="toggleUnitInput(this)">
-                <option value="">Select</option>
-                <option value="pieces" {% if row.unit == "pieces" %}selected{% endif %}>pieces</option>
-                <option value="g" {% if row.unit == "g" %}selected{% endif %}>g</option>
-                <option value="kg" {% if row.unit == "kg" %}selected{% endif %}>kg</option>
-                <option value="l" {% if row.unit == "l" %}selected{% endif %}>l</option>
-                <option value="can" {% if row.unit == "can" %}selected{% endif %}>can</option>
-                <option value="bottle" {% if row.unit == "bottle" %}selected{% endif %}>bottle</option>
-                <option value="pack" {% if row.unit == "pack" %}selected{% endif %}>pack</option>
-                <option value="other" {% if row.unit not in ['pieces','g','kg','l','can','bottle','pack'] and row.unit %}selected{% endif %}>Other...</option>
-            </select>
-            <input type="text" name="unit" class="unit-input" placeholder="Enter unit" value="{% if row.unit not in ['pieces','g','kg','l','can','bottle','pack'] %}{{ row.unit }}{% endif %}" style="{% if row.unit not in ['pieces','g','kg','l','can','bottle','pack'] and row.unit %}display:inline{% else %}display:none{% endif %}">
-        </td>
-        <td><input type="date" name="expiry" value="{{ row.expiry }}" required></td>
-    </tr>
-    {% endfor %}
-    <!-- Add new row for adding more items -->
-    <tr>
-        <td><input type="text" name="name"></td>
-        <td><input type="number" min="0" name="quantity"></td>
-        <td>
-            <select name="unit" onchange="toggleUnitInput(this)">
-                <option value="">Select</option>
-                <option value="pieces">pieces</option>
-                <option value="g">g</option>
-                <option value="kg">kg</option>
-                <option value="l">l</option>
-                <option value="can">can</option>
-                <option value="bottle">bottle</option>
-                <option value="pack">pack</option>
-                <option value="other">Other...</option>
-            </select>
-            <input type="text" name="unit" class="unit-input" placeholder="Enter unit" style="display:none">
-        </td>
-        <td><input type="date" name="expiry"></td>
-    </tr>
-</tbody>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Quantity</th>
+                    <th>Unit</th>
+                    <th>Earliest Expiry</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in inventory %}
+                     {% set idx = loop.index0 %}
 
+                <tr>
+                    <td>
+                        <input type="text" name="name" value="{{ row.name }}" required>
+                    </td>
+                    <td>
+                        <input type="number" min="0" name="quantity" value="{{ row.quantity }}" required>
+                    </td>
+                    <td>
+                        <select name="unit">
+                            <option value="units" {% if row.unit == 'units' %}selected{% endif %}>Units</option>
+                            <option value="grams" {% if row.unit == 'grams' %}selected{% endif %}>Grams</option>
+                            <option value="kg" {% if row.unit == 'kg' %}selected{% endif %}>Kg</option>
+                            <option value="ml" {% if row.unit == 'ml' %}selected{% endif %}>Ml</option>
+                            <option value="l" {% if row.unit == 'l' %}selected{% endif %}>L</option>
+                            <option value="other" {% if row.unit not in ['units', 'grams', 'kg', 'ml', 'l'] %}selected{% endif %}>Other...</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="date" name="expiry" value="{{ row.expiry }}" required>
+                    </td>
+                    <td>
+                        <button type="submit" name="delete_idx" value="{{ idx }}" class="edit-btn" style="background:#fff0f0;color:#a00;">🗑️</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <button type="submit" class="primary-btn">Save Changes</button>
+</form>
 
-
-                    </table>
-                </div>
-                <button type="submit" class="primary-btn">Save Changes</button>
-            </form>
         </section>
 
         <!-- Old Requests Section -->
