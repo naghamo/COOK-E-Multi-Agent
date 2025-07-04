@@ -32,6 +32,7 @@
         </section>
 
         <!-- New Request Section -->
+        {% if not request %}
         <section id="request-section" class="card">
     <form method="POST" action="/submit_request" class="form-row">
     <input type="text" name="user_input" required placeholder="What would you like to cook today?" autocomplete="off">
@@ -39,7 +40,106 @@
 </form>
 
 </section>
+        {% endif %}
+{% if request %}
+        <!-- Request Result Section -->
+<section id="request-result-section" class="card">
 
+    <h2>Request in Progress</h2>
+    <p> {{user_input}} </p>
+
+    <!-- Result/Confirmation Section -->
+        {% if conf_type == 'conf' %}
+<section id="ingredient-confirmation" class="card">
+    <h2>Ingredient Confirmation</h2>
+    <form method="POST" action="/confirm_ingredient">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ingredient</th>
+                        <th>Requested</th>
+                        <th>To Buy (at least)</th>
+                        <th>Unit</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ing in first_conf_req %}
+                    <tr>
+                        <td>{{ ing.name }}</td>
+                        <td>
+                            {{ ing.requested_quantity }}
+                        </td>
+                        <td>
+                            <input type="number" min="0" name="to_buy_min_{{ loop.index0 }}" value="{{ ing.to_buy_min }}" style="width:60px;">
+                        </td>
+                        <td>
+                            <select name="to_buy_unit_{{ loop.index0 }}">
+                                {% for unit in units %}
+                                    <option value="{{ unit }}" {% if unit == ing.to_buy_unit %}selected{% endif %}>{{ unit }}</option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>
+                            <small>May be higher depending on store products</small>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="primary-btn" style="margin-top:20px;">Confirm All</button>
+    </form>
+</section>
+
+{% endif %}
+    {% if payment_conf %}
+<section id="result-section" class="card highlight">
+    <h2>Review &amp; Pay</h2>
+    <h3>Supermarket: {{ supermarket }}</h3>
+    <div>
+        <b>Delivery:</b> {{ delivery.time }} (Fee: ₪{{ delivery.fee }})
+    </div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Brand</th>
+                    <th>Code</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Promo</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart %}
+                <tr>
+                    <td>{{ item.product }}</td>
+                    <td>{{ item.brand }}</td>
+                    <td>{{ item.code }}</td>
+                    <td>{{ item.qty }}</td>
+                    <td>{{ item.unit_price }} ₪</td>
+                    <td>{{ item.promo }}</td>
+                    <td>{{ item.total_price }} ₪</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="total"><b>Total: {{ total_price }} ₪</b></p>
+    <form method="POST" action="/confirm_order">
+        <button type="submit" class="primary-btn">Pay &amp; Order</button>
+    </form>
+</section>
+{% endif %}
+
+
+
+</section>
+ {% endif %}
 
         <!-- Home Inventory Section -->
         <section id="inventory-section" class="card">
@@ -68,15 +168,19 @@
                         <input type="number" min="0" name="quantity" value="{{ row.quantity }}" required>
                     </td>
                     <td>
-                        <select name="unit">
-                            <option value="units" {% if row.unit == 'units' %}selected{% endif %}>Units</option>
-                            <option value="grams" {% if row.unit == 'grams' %}selected{% endif %}>Grams</option>
-                            <option value="kg" {% if row.unit == 'kg' %}selected{% endif %}>Kg</option>
-                            <option value="ml" {% if row.unit == 'ml' %}selected{% endif %}>Ml</option>
-                            <option value="l" {% if row.unit == 'l' %}selected{% endif %}>L</option>
-                            <option value="other" {% if row.unit not in ['units', 'grams', 'kg', 'ml', 'l'] %}selected{% endif %}>Other...</option>
-                        </select>
-                    </td>
+    <select name="unit">
+    {% for unit in units %}
+        <option value="{{ unit }}" {% if row.unit == unit %}selected{% endif %}>{{ unit|capitalize }}</option>
+    {% endfor %}
+    <option value="other">Other...</option>
+</select>
+
+    <input type="text" name="custom_unit" class="unit-input"
+        value="{% if row.unit not in ['units', 'grams', 'kg', 'ml', 'l'] %}{{ row.unit }}{% endif %}"
+        style="display: {% if row.unit not in ['units', 'grams', 'kg', 'ml', 'l'] %}inline{% else %}none{% endif %}; width: 70px; margin-top: 5px;"
+        placeholder="Unit...">
+</td>
+
                     <td>
                         <input type="date" name="expiry" value="{{ row.expiry }}" required>
                     </td>
@@ -93,15 +197,17 @@
                         <input type="number" min="0" name="new_quantity" placeholder="Qty">
                     </td>
                     <td>
-                        <select name="new_unit">
-                            <option value="units">Units</option>
-                            <option value="grams">Grams</option>
-                            <option value="kg">Kg</option>
-                            <option value="ml">Ml</option>
-                            <option value="l">L</option>
-                            <option value="other">Other...</option>
-                        </select>
-                    </td>
+    <select name="new_unit" onchange="toggleUnitInput(this)">
+        <option value="units">Units</option>
+        <option value="grams">Grams</option>
+        <option value="kg">Kg</option>
+        <option value="ml">Ml</option>
+        <option value="l">L</option>
+        <option value="other">Other...</option>
+    </select>
+    <input type="text" name="new_custom_unit" class="unit-input" style="display:none; width: 70px; margin-top: 5px;" placeholder="Unit...">
+</td>
+
                     <td>
                         <input type="date" name="new_expiry">
                     </td>
@@ -115,76 +221,49 @@
 
         </section>
 
-        <!-- Old Requests Section -->
-        <section id="old-requests-section" class="card">
-            <h2>Old Requests</h2>
-            <ul>
-                {% for req in old_requests %}
-                <li>
-                    <b>{{ req.food_name }}</b> for {{ req.people }}<br>
-                    <span class="text-muted">({{ req.date }})</span>
-                </li>
-                {% else %}
-                <li>No old requests yet.</li>
-                {% endfor %}
-            </ul>
-        </section>
+       <!-- Old Requests Section -->
+<section id="old-requests-section" class="card">
+    <h2>Old Requests</h2>
+    <ul>
+        {% for req in old_requests %}
+            <li>
+                <strong>{{ req['text'] }}</strong><br>
+                <small>
+                    User: {{ req['user'] }},
+                    Date: {{ req['timestamp'] }}
+                </small>
+            </li>
+        {% else %}
+            <li>No old requests yet.</li>
+        {% endfor %}
+    </ul>
+</section>
 
-        <!-- Result/Confirmation Section -->
-        {% if result %}
-        <section id="result-section" class="card highlight">
-            <h2>Result &amp; Confirmation</h2>
-            <h3>Shopping Cart</h3>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>Brand</th>
-                            <th>Qty</th>
-                            <th>Unit Price</th>
-                            <th>Total Price</th>
-                            <th>Product Code</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in result.cart %}
-                        <tr>
-                            <td>{{ item.name }}</td>
-                            <td>{{ item.brand }}</td>
-                            <td>{{ item.qty }}</td>
-                            <td>{{ item.unit_price }}</td>
-                            <td>{{ item.total_price }}</td>
-                            <td>{{ item.code }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <p class="total"><b>Total: {{ result.total_price }}</b></p>
-            <form method="POST" action="/confirm_order">
-                <button type="submit" class="primary-btn">Confirm &amp; Pay</button>
-            </form>
-        </section>
-        {% endif %}
+
+
     </main>
  <script>
-    function toggleUnitInput(select) {
-        var input = select.parentElement.querySelector('.unit-input');
-        if (select.value === "other") {
-            input.style.display = "inline";
-            input.required = true;
-        } else {
-            input.value = select.value;
-            input.style.display = "none";
-            input.required = false;
-        }
+   function toggleUnitInput(select) {
+    var input = select.parentElement.querySelector('.unit-input');
+    if (select.value === "other") {
+        input.style.display = "inline";
+        input.required = true;
+    } else {
+        input.value = select.value;
+        input.style.display = "none";
+        input.required = false;
     }
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('select[name="unit"]').forEach(function(sel) {
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('select[name="unit"], select[name="new_unit"]').forEach(function(sel) {
+        toggleUnitInput(sel);
+        sel.addEventListener('change', function() {
             toggleUnitInput(sel);
         });
     });
+});
+
     </script>
 </body>
 </html>

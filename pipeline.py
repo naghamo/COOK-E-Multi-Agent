@@ -50,3 +50,5 @@ def run_cooke_pipeline(user_text, user_inventory):
     #     "cart": cart_result,
     #     "confirmation": confirmation
     # }
+def run_pipeline_confirmation_inventory(user_text):
+    pass
