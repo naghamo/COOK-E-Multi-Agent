@@ -1,4 +1,4 @@
-def update_total_tokens(new_tokens, filename="data/total_tokens.txt"):
+def update_total_tokens(new_tokens, filename="../tokens/total_tokens.txt"):
     #current total
     try:
         with open(filename, "r") as f:
@@ -24,4 +24,4 @@ def update_total_tokens(new_tokens, filename="data/total_tokens.txt"):
 #     print("Prompt tokens:", cb.prompt_tokens)
 #     print("Completion tokens:", cb.completion_tokens)
 #     print("Total tokens (this run):", cb.total_tokens)
-#     update_total_tokens(cb.total_tokens, filename="data/total_tokens_Nagham.txt")
+#     update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Nagham.txt")

@@ -2,7 +2,7 @@ from langchain_community.callbacks import get_openai_callback
 from langchain_community.chat_models import AzureChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import HumanMessage
-from tokens_count import update_total_tokens
+from tokens.tokens_count import update_total_tokens
 from dotenv import load_dotenv
 import os
 
@@ -55,7 +55,7 @@ def generate_context(user_input):
         print("Prompt tokens:", cb.prompt_tokens)
         print("Completion tokens:", cb.completion_tokens)
         print("Total tokens (this run):", cb.total_tokens)
-        update_total_tokens(cb.total_tokens, filename="../data/total_tokens_Nagham.txt")
+        update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Nagham.txt")
     return response.content
 
 if __name__ == "__main__":
