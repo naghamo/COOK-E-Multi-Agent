@@ -1,6 +1,6 @@
 # COOK·E – Cognitive Organized Online Kitchen Expert
 
-COOK·E is an **autonomous, multi-agent AI system** that transforms a user's free-text cooking request into an optimized, ready-to-order grocery cart from real supermarkets. The project demonstrates the power of LLM-based reasoning, product/recipe data integration, and step-by-step pipeline orchestration—all wrapped in a user-friendly web interface.
+COOK·E is an **autonomous, multi-agent AI system** that transforms a user's free-text cooking request into an optimized, ready-to-order grocery cart from real supermarkets. The project demonstrates the power of LLM-based reasoning, product/recipe data integration, and step-by-step pipeline orchestration, all wrapped in a user-friendly web interface.
 
 ---
 
@@ -100,14 +100,14 @@ COOK-E_Agent/
 2. Download required datasets (see `/data/` folder).
 3. Run the app:
    `python app.py`
-4. Go to [http://localhost:5000](http://localhost:5000), login with the default user, and start cooking!
+4. Go to [http://localhost:5000](http://localhost:5000), log in with the default user, and start cooking!
 
 ---
 
 ## 📝 Notes
 
 * All LLM-powered agents are tracked for token usage in `tokens_count.py`.
-* Agents are modular—easy to expand, improve, or swap for better models/APIs.
+* Agents are modular, easy to expand, improve, or swap for better models/APIs.
 * All reasoning, substitutions, and choices are explainable at each step.
 * All LLM-powered agents use GPT-4o
 
