@@ -15,10 +15,13 @@ def update_total_tokens(new_tokens, filename="data/total_tokens.txt"):
 
 #use this in the pipeline to update the total tokens remember to change name
 # from langchain.callbacks import get_openai_callback
-#
+#from tokens_count import update_total_tokens
+# formatted_prompt = prompt_template.format(user_input=user_input)
+# messages = [HumanMessage(content=formatted_prompt)]
 # with get_openai_callback() as cb:
-#     result = run_cooke_pipeline(user_text, inventory)
-#     print("Tokens this run:", cb.total_tokens)
 #
-# # After the run, update the total:
-# update_total_tokens(cb.total_tokens, filename="data/total_tokens_Nagham.txt")
+#     response = chat(messages=messages)
+#     print("Prompt tokens:", cb.prompt_tokens)
+#     print("Completion tokens:", cb.completion_tokens)
+#     print("Total tokens (this run):", cb.total_tokens)
+#     update_total_tokens(cb.total_tokens, filename="data/total_tokens_Nagham.txt")

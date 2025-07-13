@@ -1,16 +1,29 @@
-from langchain.prompts import PromptTemplate
+from langchain_community.callbacks import get_openai_callback
+from langchain_community.chat_models import AzureChatOpenAI
+from langchain.prompts import ChatPromptTemplate
+from langchain.schema import HumanMessage
+from tokens_count import update_total_tokens
+from dotenv import load_dotenv
+import os
 
-from langchain.chains import LLMChain
-from langchain_openai import OpenAI
-LANGSMITH_TRACING=True
-LANGSMITH_ENDPOINT="https://api.smith.langchain.com"
-LANGSMITH_API_KEY="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"
-LANGSMITH_PROJECT="pr-upbeat-implement-92"
-# OPENAI_API_KEY="<your-openai-api-key>"
-#system prompt
-llm = OpenAI(openai_api_key="sk-...")
+load_dotenv()
 
-template = """
+AZURE_OPENAI_API_KEY = os.environ["AZURE_OPENAI_API_KEY"]
+DEPLOYMENT_NAME = os.environ["DEPLOYMENT_NAME"]
+AZURE_OPENAI_ENDPOINT = os.environ["AZURE_OPENAI_ENDPOINT"]
+API_VERSION = os.environ["API_VERSION"]
+
+
+chat = AzureChatOpenAI(
+    azure_deployment=DEPLOYMENT_NAME,
+    api_key=AZURE_OPENAI_API_KEY,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+    openai_api_version=API_VERSION,
+    openai_api_type="azure",
+    temperature=0,
+)
+
+context_template =  """
 You are an expert cooking assistant.
 Given a user's free-text request, extract as much information as possible into a single valid JSON object, using the following fields:
 
@@ -32,25 +45,19 @@ Instructions:
 User Request: {user_input}
 """
 
+prompt_template = ChatPromptTemplate.from_template(context_template)
 
-prompt = PromptTemplate(input_variables=["user_input"], template=template)
+def generate_context(user_input):
+    formatted_prompt = prompt_template.format(user_input=user_input)
+    messages = [HumanMessage(content=formatted_prompt)]
+    with get_openai_callback() as cb:
+        response = chat(messages=messages)
+        print("Prompt tokens:", cb.prompt_tokens)
+        print("Completion tokens:", cb.completion_tokens)
+        print("Total tokens (this run):", cb.total_tokens)
+        update_total_tokens(cb.total_tokens, filename="../data/total_tokens_Nagham.txt")
+    return response.content
 
-llm = OpenAI(model="gpt-3.5-turbo", temperature=0, max_tokens=256)
-chain = LLMChain(prompt=prompt, llm=llm)
-
-def parse_context(user_input):
-    result = chain.run(user_input=user_input)
-    print(result)
-    #  validate and load JSON:
-    import json
-    try:
-        data = json.loads(result)
-    except Exception:
-        data = {"error": "Could not parse JSON"}
-    return data
-
-# Example usage
 if __name__ == "__main__":
-    inp = "Vegan pizza for 5 under 40₪ with delivery, no mushrooms, with whole wheat"
-    context = parse_context(inp)
-    print(context)
+    inp = "Vegan pizza for 5 under 40₪ with pickup, no mushrooms"
+    print(generate_context(inp))
