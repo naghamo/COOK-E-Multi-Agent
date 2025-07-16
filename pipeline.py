@@ -45,6 +45,7 @@ def run_pipeline_to_inventory_confirmation(user_text, user_inventory):
     #     "need_confirmation": need_confirmation,
     #     # "to_buy_initial": initial_to_buy,  # Optional: initial guess
     # }
+    pass
 
 
 def run_pipeline_until_payment(context, recipe, confirmed_to_buy):
@@ -76,4 +77,5 @@ def run_pipeline_until_payment(context, recipe, confirmed_to_buy):
     #     "execution_result": execution_result,
     #     "context": context
     # }
+    pass
 

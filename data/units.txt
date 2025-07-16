@@ -1,1 +1,7 @@
-gram
+grams
+kg
+ml
+l
+tablespoons
+teaspoons
+units

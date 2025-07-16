@@ -181,7 +181,11 @@
         <section id="inventory-section" class="card">
             <h2>Home Inventory</h2>
             <form method="POST" action="/inventory">
-    <div class="table-responsive">
+    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+        <div style="margin-bottom: 10px;">
+    <input type="text" id="inventory-search" placeholder="Search by item name..." style="width: 100%; padding: 8px;">
+</div>
+
         <table>
             <thead>
                 <tr>
@@ -192,7 +196,7 @@
                     <th>Delete</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="inventory-body">
                 {% for row in inventory %}
                      {% set idx = loop.index0 %}
 
@@ -318,6 +322,20 @@
       toggleUnitInput(sel);
       sel.addEventListener('change', function () {
         toggleUnitInput(sel);
+      });
+    });
+  });
+  document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('inventory-search').addEventListener('input', function () {
+      const query = this.value.toLowerCase();
+      const rows = document.querySelectorAll('#inventory-body tr');
+
+      rows.forEach(row => {
+        const itemCell = row.querySelector('td'); // First <td> (with the input)
+        const input = itemCell?.querySelector('input');
+
+        const itemText = input?.value?.toLowerCase() || '';
+        row.style.display = itemText.includes(query) ? '' : 'none';
       });
     });
   });

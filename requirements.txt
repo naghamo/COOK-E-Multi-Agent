@@ -3,3 +3,6 @@ pandas~=2.2.3
 kagglehub~=0.3.12
 numpy~=2.0.2
 protobuf~=6.31.1
+python-dotenv
+openai>=1.6.0
+qdrant-client>=1.6.3

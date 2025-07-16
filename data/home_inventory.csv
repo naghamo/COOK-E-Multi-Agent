@@ -1,2 +1,97 @@
-name,quantity,unit,expiry
-Banana,5,gram,2026-05-05
+index,name,quantity,unit,expiry
+0,cream,35.5,grams,2025-08-24
+1,cilantro,731.1,teaspoons,2025-08-24
+2,chili flakes,344.8,grams,2026-01-07
+3,tomato,137.7,teaspoons,2025-12-24
+4,corn,803.6,ml,2025-09-23
+5,vegetable oil,158.3,ml,2025-12-04
+7,sugar,549.9,tablespoons,2025-11-30
+8,baking powder,678.2,units,2025-12-21
+9,lime juice,62.9,grams,2025-10-12
+10,cinnamon,297.9,ml,2025-09-14
+11,breadcrumbs,663.9,units,2025-10-05
+12,kale,74.3,ml,2025-09-08
+13,lentils,380.2,kg,2025-08-20
+14,chickpeas,430.7,kg,2025-11-05
+17,red wine vinegar,510.4,teaspoons,2025-10-10
+18,milk,353.4,ml,2025-09-19
+19,salt,391.9,grams,2025-11-08
+20,mustard,497.2,l,2025-12-17
+21,pasta,375.9,l,2025-10-29
+22,raisins,711.0,l,2025-09-10
+23,cabbage,361.1,l,2025-11-14
+24,broccoli,756.6,kg,2025-12-14
+26,tabasco,613.2,l,2025-08-20
+27,olive oil,125.7,units,2025-12-09
+29,almonds,758.6,units,2025-10-05
+30,basil,167.0,teaspoons,2026-01-09
+31,cashews,527.7,tablespoons,2025-09-01
+32,mayonnaise,95.5,kg,2025-11-01
+34,nutmeg,49.3,teaspoons,2025-08-09
+35,kidney beans,824.3,kg,2025-10-14
+36,instant coffee,203.3,ml,2025-10-20
+37,ground beef,273.0,ml,2025-11-17
+41,pear,174.6,units,2025-12-03
+42,spinach,191.1,kg,2026-01-07
+43,sesame seeds,661.3,l,2025-11-11
+45,bread,750.5,l,2025-09-01
+48,rice,919.3,tablespoons,2025-08-23
+49,canola oil,379.7,kg,2025-12-16
+50,tomato sauce,856.5,grams,2025-11-14
+51,zucchini,101.8,kg,2025-12-21
+52,walnuts,554.0,grams,2025-08-11
+53,lettuce,692.8,tablespoons,2025-08-15
+54,vanilla extract,933.1,ml,2025-08-06
+56,soy sauce,500.4,tablespoons,2025-10-08
+57,oregano,727.9,tablespoons,2026-01-01
+58,vinegar,26.2,ml,2025-10-02
+59,parmesan cheese,826.1,l,2025-11-08
+60,figs,158.8,grams,2025-10-17
+61,potatoes,853.6,teaspoons,2025-12-18
+62,quinoa,476.2,units,2025-08-29
+63,apple,356.2,ml,2025-10-14
+66,hazelnuts,919.2,tablespoons,2025-12-10
+70,rosemary,548.0,ml,2025-09-16
+74,black pepper,497.5,teaspoons,2025-11-08
+76,flour,932.9,teaspoons,2026-01-12
+77,cheddar cheese,323.2,teaspoons,2025-08-13
+82,green beans,661.3,units,2025-09-04
+86,maple syrup,32.3,l,2025-08-16
+87,mushrooms,60.8,l,2025-08-17
+88,cucumber,848.4,teaspoons,2025-10-07
+91,avocado,120.4,grams,2025-11-16
+92,ketchup,223.8,tablespoons,2025-09-23
+96,tofu,619.3,units,2025-08-05
+97,orange,688.8,teaspoons,2025-08-31
+102,garlic,361.8,ml,2025-12-04
+103,dates,889.8,ml,2025-10-30
+107,sunflower oil,792.5,l,2025-11-01
+110,cream cheese,785.1,grams,2025-11-09
+116,onion,312.5,l,2025-09-19
+118,cumin,812.8,teaspoons,2025-10-14
+122,yogurt,709.3,units,2025-11-03
+125,chicken breast,241.5,units,2025-10-02
+127,beef steak,544.1,l,2026-01-05
+128,apple cider vinegar,801.7,teaspoons,2025-12-25
+134,butter,607.3,teaspoons,2025-11-10
+137,eggs,226.7,units,2025-11-01
+143,black beans,723.7,ml,2025-09-20
+150,mozzarella,881.0,grams,2025-08-19
+156,cornstarch,551.7,teaspoons,2025-09-29
+158,mint,523.3,teaspoons,2025-11-29
+159,feta cheese,373.5,teaspoons,2025-10-05
+160,banana,50.0,l,2025-08-12
+169,cauliflower,828.1,kg,2025-09-02
+177,turmeric,325.0,grams,2025-11-30
+184,honey,112.7,ml,2025-12-24
+187,coconut milk,263.3,l,2025-10-02
+190,salmon,807.2,l,2025-09-20
+191,peanut butter,847.3,l,2025-08-09
+199,lemon juice,422.5,l,2025-10-29
+212,ginger,329.4,l,2026-01-08
+233,tempeh,210.1,grams,2025-11-29
+285,thyme,71.0,units,2025-09-20
+288,cocoa powder,902.6,l,2025-08-26
+296,paprika,809.2,units,2025-09-15
+376,bell pepper,821.0,grams,2025-10-18
+481,tomato paste,733.1,ml,2025-09-28
