@@ -9,9 +9,10 @@ import os
 load_dotenv()
 
 AZURE_OPENAI_API_KEY = os.environ["AZURE_OPENAI_API_KEY"]
-DEPLOYMENT_NAME = os.environ["DEPLOYMENT_NAME"]
-AZURE_OPENAI_ENDPOINT = os.environ["AZURE_OPENAI_ENDPOINT"]
-API_VERSION = os.environ["API_VERSION"]
+DEPLOYMENT_NAME = "team10-gpt4o"
+AZURE_OPENAI_ENDPOINT = "https://096290-oai.openai.azure.com"
+API_VERSION = "2023-05-15"
+
 
 
 chat = AzureChatOpenAI(
@@ -25,24 +26,6 @@ chat = AzureChatOpenAI(
 
 context_template =  """
 You are an expert cooking assistant.
-Given a user's free-text request, extract as much information as possible into a single valid JSON object, using the following fields:
-
-- food_name: string. (Required. If not found, set to null and include a short error.)
-- people: integer. (Default to 1 if not specified.)
-- delivery: string. ("delivery", "pickup", or null; default to "delivery" if not specified.)
-- special_requests: string or null.
-- budget: string or null.
-- raw_text: the original user input.
-- extra_fields: dictionary for any other constraints or preferences (e.g., allergies, brands, supermarkets, dietary restrictions, tools, timing, etc.), using snake_case for keys.
-- error: string, only if the input is ambiguous, not a food request, or if food_name is missing.
-
-Instructions:
-- If a field is missing, set to null (unless a default is specified).
-- If food_name is missing, set error and do not proceed further.
-- If the input is not a food request or is ambiguous, set error with a short message.
-- Output ONLY valid JSON with the fields above. No extra text.
-
-User Request: {user_input}
 """
 
 prompt_template = ChatPromptTemplate.from_template(context_template)
