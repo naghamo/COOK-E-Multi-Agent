@@ -47,6 +47,7 @@ User Request: {user_input}
 
 prompt_template = ChatPromptTemplate.from_template(context_template)
 
+
 def generate_context(user_input):
     formatted_prompt = prompt_template.format(user_input=user_input)
     messages = [HumanMessage(content=formatted_prompt)]
@@ -57,6 +58,7 @@ def generate_context(user_input):
         print("Total tokens (this run):", cb.total_tokens)
         update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Nagham.txt")
     return response.content
+
 
 if __name__ == "__main__":
     inp = "Vegan pizza for 5 under 40₪ with pickup, no mushrooms"
