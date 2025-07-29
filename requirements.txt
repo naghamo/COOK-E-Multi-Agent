@@ -6,3 +6,6 @@ protobuf~=6.31.1
 python-dotenv
 openai>=1.6.0
 qdrant-client>=1.6.3
+
+Pint==0.24.4
+langchain>=0.2.10
