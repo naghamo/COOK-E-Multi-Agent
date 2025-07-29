@@ -1,80 +1,90 @@
-"""
-Agent that
-  • embeds queries locally (BAAI/bge‑small‑en‑v1.5)
-  • LLM decides include/exclude keywords (ALL vs ANY)
-  • returns a feasible recipe JSON or a structured error JSON
-"""
-
-
-import os, json, ast
+# ------------------------------------------------------------------
+# 0. Imports & Environment Setup
+# ------------------------------------------------------------------
+import os
+import json
+import ast
 from typing import Optional, Dict, List, Union
-from dotenv import load_dotenv; load_dotenv()
+from dotenv import load_dotenv
 
+# Load environment variables from .env
+load_dotenv()
+
+# Third-party libraries
 from pydantic import BaseModel, Field
 from langchain_community.chat_models import AzureChatOpenAI
 from langchain.agents import initialize_agent, AgentType
-from langchain.tools import Tool
+from langchain.tools import Tool, StructuredTool
 from langchain.schema import SystemMessage
 from langchain.callbacks.manager import get_openai_callback
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.tools import StructuredTool
-
 from langchain_community.vectorstores import Qdrant
 from qdrant_client import QdrantClient, models as qm
 
-from tokens.tokens_count import update_total_tokens    # <‑‑ your util
+# Utility for token logging
+from tokens.tokens_count import update_total_tokens
 
+# ------------------------------------------------------------------
+# 1. Configuration Constants
+# ------------------------------------------------------------------
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_ENDPOINT = os.getenv("AZURE_ENDPOINT", "https://096290-oai.openai.azure.com")
-CHAT_DEPLOYMENT = os.getenv("CHAT_DEPLOYMENT", "team10-gpt4o")
-API_VERSION = "2023-05-15"
+AZURE_ENDPOINT        = os.getenv("AZURE_ENDPOINT", "https://096290-oai.openai.azure.com")
+CHAT_DEPLOYMENT       = os.getenv("CHAT_DEPLOYMENT", "team10-gpt4o")
+API_VERSION           = "2023-05-15"
 
-QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-COLLECTION = "recipes"
+# Qdrant vector store settings
+QDRANT_URL       = os.getenv("QDRANT_URL", "http://localhost:6333")
+QDRANT_API_KEY   = os.getenv("QDRANT_API_KEY")
+COLLECTION       = "recipes"
 
-EMBED_MODEL = "BAAI/bge-small-en-v1.5"
-TOP_K = 3
+# Embedding model and retrieval parameters
+EMBED_MODEL      = "BAAI/bge-small-en-v1.5"
+TOP_K            = 3
 
-# 1. Embedding & vector store -------------------------------------------------
-embedder = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
+# ------------------------------------------------------------------
+# 2. Embedding & Vector Store Initialization
+# ------------------------------------------------------------------
+# Create an in-process HuggingFace embedding model
+embedder   = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
+# Connect to Qdrant vector database
 client_qdr = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
-vectorstore = Qdrant(client=client_qdr,
-                     collection_name=COLLECTION,
-                     embeddings=embedder,
-                     content_payload_key="title",
-                     metadata_payload_key="metadata"
-                     )
+# Wrap Qdrant as a LangChain vectorstore
+vectorstore = Qdrant(
+    client=client_qdr,
+    collection_name=COLLECTION,
+    embeddings=embedder,
+    content_payload_key="title",
+    metadata_payload_key="metadata",
+)
 
-# 2. Helpers -----------------------------------------------------------------
+# ------------------------------------------------------------------
+# 3. Helper Functions for Filtering & Formatting
+# ------------------------------------------------------------------
 def build_filter(qp: Optional[Dict]) -> Optional[qm.Filter]:
     """
-    Build a Qdrant Filter.
-
-    qp["match_mode"] == "any"  → at least one include keyword
-    qp["match_mode"] == "all"  → every include keyword
+    Construct a Qdrant Filter from query_params:
+      include keywords (match any vs all)
+      exclude keywords
     """
     if not qp:
         return None
 
     include = [w.lower() for w in qp.get("include", [])]
     exclude = [w.lower() for w in qp.get("exclude", [])]
-    mode = qp.get("match_mode", "all").lower()
+    mode    = qp.get("match_mode", "all").lower()
 
     must, must_not = [], []
 
-    # -------- include keywords ----------
+    # Include logic: ANY vs ALL
     if include:
         if mode == "any":
-            # one condition with many options
             must.append(
                 qm.FieldCondition(
                     key="keywords",
                     match=qm.MatchAny(any=include)
                 )
             )
-        else:  # "all"
-            # one condition per ingredient
+        else:  # all
             for kw in include:
                 must.append(
                     qm.FieldCondition(
@@ -83,7 +93,7 @@ def build_filter(qp: Optional[Dict]) -> Optional[qm.Filter]:
                     )
                 )
 
-    # -------- exclude keywords ----------
+    # Exclude logic: always match any forbidden keyword
     if exclude:
         must_not.append(
             qm.FieldCondition(
@@ -92,32 +102,52 @@ def build_filter(qp: Optional[Dict]) -> Optional[qm.Filter]:
             )
         )
 
+    # Return a Qdrant Filter if any conditions exist
     return qm.Filter(must=must, must_not=must_not) if (must or must_not) else None
 
-def docs_to_json(hits):
+
+def docs_to_json(hits) -> List[Dict]:
+    """
+    Convert Qdrant search hits into serializable JSON with payload + score
+    """
     out = []
     for h in hits:
         out.append({
-            "payload": h.payload,  # <‑‑ full recipe data
-            "score": float(h.score)
+            "payload": h.payload,  # full recipe data
+            "score":   float(h.score)
         })
     return out
 
-# 3. Structured tool ---------------------------------------------------------
+# ------------------------------------------------------------------
+# 4. Structured Search Tool Definition
+# ------------------------------------------------------------------
 class RecipeArgs(BaseModel):
+    """
+    Defines the arguments for searching recipes:
+      - request_json: parser output as dict or JSON string
+      - query_params: include/exclude keywords + match_mode
+    """
     request_json: Union[Dict, str] = Field(
-        ...,
-        description="Parser output (dict) or the same serialized as JSON string"
+        ..., description="Parser output (dict) or serialized JSON string"
     )
     query_params: Optional[Dict] = Field(
-        None,
-        description="{include:[str], exclude:[str], match_mode:'all'|'any'}"
+        None, description="{'include':[str], 'exclude':[str], 'match_mode':'all'|'any'}"
     )
 
-def search_recipes(request_json: Union[Dict, str],
-                   query_params: Optional[Dict] = None) -> str:
+
+def search_recipes(
+    request_json: Union[Dict, str],
+    query_params: Optional[Dict] = None
+) -> str:
+    """
+    Query the vectorstore for candidate recipes.
+    1. Deserialize parser output
+    2. Build a text query
+    3. Execute semantic search with optional filter
+    4. Return top-K hits as JSON
+    """
+    # 1. Deserialize parser output (allow ast fallback)
     if isinstance(request_json, str):
-        # tolerate single‑quoted pseudo‑JSON by replacing with double quotes fallback
         try:
             req = json.loads(request_json)
         except json.JSONDecodeError:
@@ -125,33 +155,38 @@ def search_recipes(request_json: Union[Dict, str],
     else:
         req = request_json
 
+    # 2. Construct search text from food_name + special_requests
     pieces = [req.get("food_name", "")]
     if sr := req.get("special_requests"):
         pieces.append(sr)
-    if not pieces:
+    if not any(pieces):
         pieces.append(req.get("raw_text", ""))
     query_text = " ".join(pieces).strip()
 
+    # 3. Perform vector search with filter
     hits = vectorstore.client.search(
         collection_name=COLLECTION,
         query_vector=vectorstore._embed_query(query_text),
         limit=TOP_K,
         query_filter=build_filter(query_params)
     )
+
+    # 4. Return hits as JSON string
     return json.dumps({"hits": docs_to_json(hits)}, ensure_ascii=False)
 
+# Wrap as a StructuredTool for the agent
 get_recipes = StructuredTool.from_function(
     func=search_recipes,
     name="get_recipes",
     description=(
-        "Retrieve candidate recipes.\n"
-        "Args: request_json (str, required) and optional query_params dict "
-        "with include / exclude / match_mode"
+        "Retrieve candidate recipes. Args: request_json(str) + optional query_params"
     ),
     args_schema=RecipeArgs,
 )
 
-# 4. Planner LLM + system prompt --------------------------------------------
+# ------------------------------------------------------------------
+# 5. Planner LLM & System Prompt Setup
+# ------------------------------------------------------------------
 planner_llm = AzureChatOpenAI(
     azure_deployment   = CHAT_DEPLOYMENT,
     openai_api_key     = AZURE_OPENAI_API_KEY,
@@ -182,7 +217,7 @@ Ignore logistics fields
 • people / servings counts  
 These constraints are handled later in the pipeline; do not filter on them.
 
-Single tool — `get_recipes`  
+Single tool — get_recipes  
 Args schema:
 {
   "request_json": <parser JSON string>,     // required  (ALWAYS include)
@@ -194,11 +229,11 @@ Args schema:
 }
 
 Tool‑use rules  (MAX 3 calls)  
-1. **Call#1:** broad search — omit `query_params` entirely.  
+1. **Call#1:** broad search — omit query_params entirely.  
 2. Inspect the hits. If they contain forbidden ingredients that can be
     simply omitted or swapped, **keep the hit and edit it** instead of
     excluding those ingredients in the filter.
-3. Use `exclude` keywords **only** when the ingredient is fundamental or poses a strict allergy risk.
+3. Use exclude keywords **only** when the ingredient is fundamental or poses a strict allergy risk.
 4. At most 3 total calls; otherwise return the *Not feasible* JSON.
 
 Return EXACTLY ONE of
@@ -224,30 +259,41 @@ Not feasible
 Workflow summary  
 • Start with broad search.  
 • Refine only when necessary (≤2 extra calls).  
-• Prefer `include`/`exclude` on ingredients or keywords; adjust `match_mode`.  
+• Prefer include/exclude on ingredients or keywords; adjust match_mode.  
 • Finally, output ONE of the JSON structures above, nothing else.
 """.strip())
 
+# Initialize the agent with function-calling support
 agent = initialize_agent(
-    tools=[get_recipes],
-    llm=planner_llm,
-    agent=AgentType.OPENAI_FUNCTIONS,
-    agent_kwargs={"system_message": SYSTEM_PROMPT},
-    verbose=True,
+    tools      = [get_recipes],
+    llm        = planner_llm,
+    agent      = AgentType.OPENAI_FUNCTIONS,
+    agent_kwargs = {"system_message": SYSTEM_PROMPT},
+    verbose    = True,
 )
 
-# 5. Wrapper with token logging ---------------------------------------------
-def run_agent(parsed_request: dict) -> str:
+# ------------------------------------------------------------------
+# 6. Agent Runner with Token Logging
+# ------------------------------------------------------------------
+def run_agent(parsed_request):
+    """
+    Invoke the agent on parsed_request and log token usage.
+    Returns the agent's JSON response as a string.
+    """
     with get_openai_callback() as cb:
-        result = agent.invoke({"input": parsed_request})   # LC JSON‑serialises automatically
-        print(f"\nTokens | prompt {cb.prompt_tokens}  "
-              f"completion {cb.completion_tokens}  total {cb.total_tokens}")
-        update_total_tokens(cb.total_tokens,
-                            filename="../tokens/total_tokens_Seva.txt")
+        result = agent.invoke({"input": parsed_request})
+        print(
+            f"\nTokens | prompt {cb.prompt_tokens}  "
+            f"completion {cb.completion_tokens}  total {cb.total_tokens}"
+        )
+        update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Seva.txt")
     return result
 
-# 6. CLI demo ----------------------------------------------------------------
+# ------------------------------------------------------------------
+# 7. CLI Demo
+# ------------------------------------------------------------------
 if __name__ == "__main__":
+    # Example requests to test the pipeline
     req1 = {
         "food_name": "Vegan pizza",
         "people": 5,
@@ -256,6 +302,7 @@ if __name__ == "__main__":
         "extra_fields": {},
         "error": None
     }
+
     req2 = {
         "food_name": "Peanut satay noodles",
         "people": 2,
@@ -265,10 +312,10 @@ if __name__ == "__main__":
         "error": None
     }
 
-    print("\n=== Feasible Request ===")
-    print(json.dumps(req1, indent=2, ensure_ascii=False))
-    print("\nAgent response:\n", run_agent(req1))
+    # print("\n=== Request 1 ===")
+    # print(json.dumps(req1, indent=2, ensure_ascii=False))
+    # print("\nAgent response:\n", run_agent(req1))
 
-    print("\n=== Impossible Request ===")
+    print("\n=== Request 2 ===")
     print(json.dumps(req2, indent=2, ensure_ascii=False))
     print("\nAgent response:\n", run_agent(req2))
