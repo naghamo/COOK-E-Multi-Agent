@@ -81,7 +81,7 @@ today: {today}
 
 confirmation_template = ChatPromptTemplate.from_template(confirmation_prompt)
 
-def run_confirmation_agent(df_recipe, matched_inventory, parsed_user_input):
+def run_confirmation_agent(df_recipe, matched_inventory, parsed_user_input,tokens_filename="../tokens/total_tokens_Nagham.txt"):
     """
     For each recipe ingredient, determines if it needs to be bought (based on home inventory & rules).
     Args:
@@ -106,7 +106,7 @@ def run_confirmation_agent(df_recipe, matched_inventory, parsed_user_input):
     )
     with get_openai_callback() as cb:
         response = chat(messages=prompt)
-    update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Nagham.txt")
+    update_total_tokens(cb.total_tokens, filename=tokens_filename)
 
     return response.content
 

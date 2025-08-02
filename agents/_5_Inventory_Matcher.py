@@ -69,12 +69,13 @@ def extract_json_from_llm(text):
     if match:
         return match.group(1).strip()
     return text
-def run_matcher_agent(df_recipe, df_inventory, batch_size=5):
+def run_matcher_agent(df_recipe, df_inventory='../data/home_inventory.csv', batch_size=5,tokens_filename="../tokens/total_tokens_Nagham.txt"):
     """
     Splits the inventory into batches and matches each batch to the recipe ingredients.
     Returns: List of relevant inventory items (as dicts).
     """
     matched_inventory = []
+    df_inventory=pd.read_csv(df_inventory)
     recipe_str = df_recipe.to_string(index=False)
     # Split inventory to batches to save tokens/cost.
     inventory_batches = [df_inventory.iloc[i:i+batch_size] for i in range(0, len(df_inventory), batch_size)]
@@ -86,7 +87,7 @@ def run_matcher_agent(df_recipe, df_inventory, batch_size=5):
         )
         with get_openai_callback() as cb:
             response = chat(messages=prompt)
-        update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Nagham.txt")
+        update_total_tokens(cb.total_tokens, filename=tokens_filename)
         # Parse response as JSON and append results
         raw_content = response.content
         json_string = extract_json_from_llm(raw_content)

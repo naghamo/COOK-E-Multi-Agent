@@ -25,10 +25,10 @@ import pandas as pd
 from agents._1_llm_context_parser import parse_context
 from agents._2_recipe_retriever import retrieve_recipe
 # # from agents._3_cart_delivery_validator import validate_cart
-# from agents._4_recipe_parser import build_scaled_ingredient_list
-# from agents._5_Inventory_Matcher import run_matcher_agent
-# from agents._6_inventory_confirmation import run_confirmation_agent
-# from agents._7_inventory_filter import run_inventory_filter_agent
+from agents._4_recipe_parser import build_scaled_ingredient_list
+from agents._5_Inventory_Matcher import run_matcher_agent
+from agents._6_inventory_confirmation import run_confirmation_agent
+from agents._7_inventory_filter import run_inventory_filter_agent
 
 # --- Pipeline Functions ---
 def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/total_tokens.txt"):
@@ -43,43 +43,27 @@ def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/to
     # 2. Retrieve recipe based on context
     recipe = retrieve_recipe(context, tokens_filename=tokens_filename)
     print(recipe)
-    if recipe['feasible']:
+    if not recipe['feasible']:# If no feasible recipe is found, return an error
         return {"error": f"No feasible recipe found for the given context,{recipe['reason']}"}
-    # #3. Parse recipe ingredients
-    # ingredients = build_scaled_ingredient_list(context,recipe, tokens_filename=tokens_filename)
+    #3. Parse recipe ingredients
+    ingredients = build_scaled_ingredient_list(context,recipe, tokens_filename=tokens_filename)
     #4. Run inventory matcher agent
-    # matched_inventory = run_matcher_agent(ingredients, user_inventory, tokens_filename=tokens_filename)
+    matched_inventory = run_matcher_agent(ingredients, df_inventory='data/home_inventory.csv', tokens_filename=tokens_filename)
     #5. Run confirmation agent
-    # confirmation_json = run_confirmation_agent(ingredients, matched_inventory, context, tokens_filename=tokens_filename)
-    # return {
-    #     "context": context,
-    #     "recipe": recipe,
-    #     "ingredients": ingredients,
-    #     "matched_inventory": matched_inventory,
-    #     "confirmation_json": confirmation_json,
-    # }
+    confirmation_json = run_confirmation_agent(ingredients, matched_inventory, context, tokens_filename=tokens_filename)
+    return {
+        "context": context,
+        "recipe": recipe,
+        "ingredients": ingredients,
+        "matched_inventory": matched_inventory,
+        "confirmation_json": confirmation_json,
+    }
 
 
 
-    print(recipe)
+    print(ingredients)
 
-    # recipe = retrieve_recipe(context)
-    # if not recipe:
-    #     return {"error": "No matching recipe found.", "context": context}
-    #
-    # ingredients = parse_recipe(recipe)
-    # matched_inventory = run_matcher_agent(ingredients, user_inventory)
-    # today = pd.Timestamp.today().strftime('%Y-%m-%d')
-    # confirmation_json = run_confirmation_agent(ingredients, matched_inventory, context, today)
-    #
-    # return {
-    #     "context": context,
-    #     "recipe": recipe,
-    #     "ingredients": ingredients,
-    #     "matched_inventory": matched_inventory,
-    #     "confirmation_json": confirmation_json,
-    # }
-    #
+
 
 # --- Usage Example ---
 if __name__ == "__main__":

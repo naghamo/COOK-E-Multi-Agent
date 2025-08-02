@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os, ast, uuid, json
 from typing import List, Dict, Any
 from typing_extensions import TypedDict, Optional
@@ -221,12 +223,28 @@ def convert_both(qty, unit: str) -> Dict[str, Any]:
         us_qty=round(q_us.magnitude, 2),
         us_unit=str(q_us.units)
     )
+def get_scaled_ingredients_list(ingredients) -> List[dict]:
+    """
+    Extracts only the ingredient name, scaled quantity, and scaled unit for each ingredient.
+    Returns: List of dicts with keys: name, quantity, unit
+    """
+
+    scaled_list = []
+    for ing in ingredients:
+
+        scaled = ing["scaled"]
+        scaled_list.append({
+            "name": ing["name"],
+            "quantity": scaled["metric_qty"],
+            "unit": scaled["metric_unit"]
+        })
+    return scaled_list
 
 # ──────────────────────────────────────────────────────────────
 # 8. Full Pipeline: Scale & Convert Ingredients
 # ──────────────────────────────────────────────────────────────
 
-def build_scaled_ingredient_list(user_req: Dict[str, Any], recipe: Dict[str, Any],tokens_filename) -> Dict[str, Any]:
+def build_scaled_ingredient_list(user_req: Dict[str, Any], recipe: Dict[str, Any],tokens_filename) -> list[dict]:
     """
     Given a user request and recipe JSON, parse ingredients, scale by servings,
     and return both metric & US conversions for each ingredient.
@@ -254,15 +272,16 @@ def build_scaled_ingredient_list(user_req: Dict[str, Any], recipe: Dict[str, Any
             "orig":   {"qty": ing["quantity"], "unit": ing["unit"]},
             "scaled": dual
         })
-
+    return get_scaled_ingredients_list(result)
     # Return full payload
-    return {
-        "food_name":           recipe["title"],
-        "servings_original":   recipe["servings"],
-        "servings_requested":  user_req["people"],
-        "scale_factor":        round(ratio, 3),
-        "ingredients":         result
-    }
+    # return {
+    #     "food_name":           recipe["title"],
+    #     "servings_original":   recipe["servings"],
+    #     "servings_requested":  user_req["people"],
+    #     "scale_factor":        round(ratio, 3),
+    #     "ingredients":         result
+    # }
+
 
 # ──────────────────────────────────────────────────────────────
 # 9. CLI / Script Entry Point

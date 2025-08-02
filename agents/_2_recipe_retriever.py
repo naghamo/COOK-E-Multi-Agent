@@ -4,6 +4,7 @@
 import os
 import json
 import ast
+import re
 from typing import Optional, Dict, List, Union
 from dotenv import load_dotenv
 
@@ -271,7 +272,20 @@ agent = initialize_agent(
     agent_kwargs = {"system_message": SYSTEM_PROMPT},
     verbose    = True,
 )
-
+def extract_recipe_dict(agent_response: dict) -> dict:
+    """
+    Takes the agent's output dict and returns the parsed recipe dict.
+    Expects the recipe JSON to be inside a markdown ```json ... ``` block.
+    """
+    output = agent_response.get('output', '')
+    # Find code block (markdown triple-backtick, possibly with 'json')
+    match = re.search(r"```json\s*(\{.*?\})\s*```", output, flags=re.DOTALL)
+    if not match:
+        raise ValueError("Could not find recipe JSON in output.")
+    recipe_json_str = match.group(1)
+    # Parse JSON
+    recipe_dict = json.loads(recipe_json_str)
+    return recipe_dict
 # ------------------------------------------------------------------
 # 6. Agent Runner with Token Logging
 # ------------------------------------------------------------------
@@ -287,7 +301,9 @@ def retrieve_recipe(parsed_request, tokens_filename="../tokens/total_tokens_Seva
             f"completion {cb.completion_tokens}  total {cb.total_tokens}"
         )
         update_total_tokens(cb.total_tokens, filename=tokens_filename)
-    return result
+    if isinstance(result, str):
+        return json.loads(result)
+    return extract_recipe_dict(result)
 
 # ------------------------------------------------------------------
 # 7. CLI Demo
