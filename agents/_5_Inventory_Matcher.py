@@ -74,6 +74,7 @@ def run_matcher_agent(df_recipe, df_inventory='../data/home_inventory.csv', batc
     Splits the inventory into batches and matches each batch to the recipe ingredients.
     Returns: List of relevant inventory items (as dicts).
     """
+    df_recipe= pd.DataFrame(df_recipe)
     matched_inventory = []
     df_inventory=pd.read_csv(df_inventory)
     recipe_str = df_recipe.to_string(index=False)
