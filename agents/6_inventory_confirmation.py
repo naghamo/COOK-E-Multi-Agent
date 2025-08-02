@@ -1,0 +1,139 @@
+"""
+Agent 6: Inventory Confirmation
+-------------------------------
+This agent receives:
+- The recipe ingredient list
+- The matched inventory (as from matcher agent)
+- The structured user input
+- Today's date
+
+It returns, for each recipe ingredient, whether and why it needs to be bought, as a JSON list with explanations.
+"""
+
+import pandas as pd
+from langchain_community.callbacks import get_openai_callback
+from langchain_community.chat_models import AzureChatOpenAI
+from langchain.prompts import ChatPromptTemplate
+from datetime import datetime
+from dotenv import load_dotenv
+import os
+from tokens.tokens_count import update_total_tokens
+
+
+# --- ENV SETUP ---
+
+# Load API keys and deployment settings from .env
+load_dotenv()
+AZURE_OPENAI_API_KEY = os.environ["AZURE_OPENAI_API_KEY"]
+DEPLOYMENT_NAME = "team10-gpt4o"
+AZURE_OPENAI_ENDPOINT = "https://096290-oai.openai.azure.com"
+API_VERSION = "2023-05-15"
+
+# Initialize Azure OpenAI LLM for confirmation
+chat = AzureChatOpenAI(
+    azure_deployment=DEPLOYMENT_NAME,
+    api_key=AZURE_OPENAI_API_KEY,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+    openai_api_version=API_VERSION,
+    openai_api_type="azure",
+    temperature=0,
+)
+
+# --- PROMPT ---
+
+confirmation_prompt = """
+Given:
+- df_recipe: list of ingredients with quantity and unit.
+- df_inventory: list of home items with quantity, unit, and expiry.
+- parsed_user_input: includes anything the user said they already have.
+- today: current date (in YYYY-MM-DD format).
+
+Rules:
+- When comparing expiry dates, always compare the **full date** (year, month, and day) to today.
+- If ingredient is missing, expired (expiry date is **on or before** today's full date), expiring soon (within 3 days from today's full date), or has insufficient quantity → mark for purchase.
+- If expiring soon but available in quantity, still buy full amount.
+- Match ingredients loosely (e.g., "onion" ≈ "red onion").
+- Use same unit as in recipe.
+
+Return a JSON list of dictionaries with:
+- name: ingredient name
+- requested_quantity: quantity from recipe
+- requested_unit: unit from recipe
+- to_buy_min: amount to buy (0 if not needed)
+- to_buy_unit: same as requested_unit
+- explanation: reason for purchase (e.g., "expired", "expiring in 2 days", "enough at home")
+- exp: write if you checked the expiry date, how many days remain, and if not applicable, state which date you checked.
+
+Only return the JSON list. Nothing else.
+
+df_recipe:
+{df_recipe}
+
+df_inventory:
+{df_inventory}
+
+parsed_user_input:
+{parsed_user_input}
+
+today: {today}
+"""
+
+
+confirmation_template = ChatPromptTemplate.from_template(confirmation_prompt)
+
+def run_confirmation_agent(df_recipe, matched_inventory, parsed_user_input):
+    """
+    For each recipe ingredient, determines if it needs to be bought (based on home inventory & rules).
+    Args:
+        df_recipe (DataFrame): Recipe ingredient list.
+        matched_inventory (list or DataFrame): Inventory items relevant for the recipe.
+        parsed_user_input (dict): Parsed/structured user input.
+
+    Returns:
+        LLM-generated JSON string of the decision list.
+    """
+    # Format inventory for prompt
+    today = datetime.today().strftime('%Y-%m-%d')
+    if isinstance(matched_inventory, list):
+        df_inventory_for_prompt = pd.DataFrame(matched_inventory).to_string(index=False)
+    else:
+        df_inventory_for_prompt = matched_inventory.to_string(index=False)
+    prompt = confirmation_template.format_messages(
+        df_recipe=df_recipe.to_string(index=False),
+        df_inventory=df_inventory_for_prompt,
+        parsed_user_input=parsed_user_input,
+        today=today
+    )
+    with get_openai_callback() as cb:
+        response = chat(messages=prompt)
+    update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Nagham.txt")
+
+    return response.content
+
+# Example usage for debugging and development
+if __name__ == "__main__":
+    parsed_user_input = {
+        "dish": "Pasta with tomato sauce",
+        "servings": 2,
+        "inventory_mentions": ["olive oil"],
+        "budget": "under 50 NIS",
+        "delivery_mode": "pickup"
+    }
+
+    df_recipe = pd.DataFrame([
+        {"name": "pasta", "quantity": 200, "unit": "grams"},
+        {"name": "tomato sauce", "quantity": 150, "unit": "ml"},
+        {"name": "garlic", "quantity": 2, "unit": "units"},
+        {"name": "olive oil", "quantity": 50, "unit": "ml"},
+        {"name": "salt", "quantity": 1, "unit": "teaspoons"}
+    ])
+
+    # Simulated result from matcher agent:
+    matched_inventory = [
+        {"name": "olive oil", "quantity": 30, "unit": "ml", "expiry": "2025-08-04"},
+        {"name": "garlic", "quantity": 1, "unit": "units", "expiry": "2025-07-17"},
+        {"name": "salt", "quantity": 5, "unit": "teaspoons", "expiry": "2026-01-01"}
+    ]
+
+    result = run_confirmation_agent(df_recipe, matched_inventory, parsed_user_input)
+    print(result)

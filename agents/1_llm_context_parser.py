@@ -5,7 +5,7 @@ from langchain.schema import HumanMessage
 from tokens.tokens_count import update_total_tokens
 from dotenv import load_dotenv
 import os
-
+# load environment variables
 load_dotenv()
 
 AZURE_OPENAI_API_KEY = os.environ["AZURE_OPENAI_API_KEY"]
@@ -13,7 +13,7 @@ DEPLOYMENT_NAME = "team10-gpt4o"
 AZURE_OPENAI_ENDPOINT = "https://096290-oai.openai.azure.com"
 API_VERSION = "2023-05-15"
 
-
+# Initialize the AzureChatOpenAI model
 chat = AzureChatOpenAI(
     azure_deployment=DEPLOYMENT_NAME,
     api_key=AZURE_OPENAI_API_KEY,
@@ -22,7 +22,7 @@ chat = AzureChatOpenAI(
     openai_api_type="azure",
     temperature=0,
 )
-
+# Define the context template for the LLM
 context_template =  """
 You are an expert cooking assistant.
 Given a user's free-text request, extract as much information as possible into a single valid JSON object, using the following fields:
@@ -44,10 +44,10 @@ Instructions:
 
 User Request: {user_input}
 """
-
+# Create a ChatPromptTemplate from the context template
 prompt_template = ChatPromptTemplate.from_template(context_template)
 
-
+# Function to generate context from user input
 def generate_context(user_input):
     formatted_prompt = prompt_template.format(user_input=user_input)
     messages = [HumanMessage(content=formatted_prompt)]
@@ -61,5 +61,6 @@ def generate_context(user_input):
 
 
 if __name__ == "__main__":
+    # Example user input
     inp = "Vegan pizza for 5 under 40₪ with pickup, no mushrooms"
     print(generate_context(inp))
