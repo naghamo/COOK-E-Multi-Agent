@@ -50,8 +50,7 @@ def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/to
     #4. Run inventory matcher agent
     # matched_inventory = run_matcher_agent(ingredients, user_inventory, tokens_filename=tokens_filename)
     #5. Run confirmation agent
-    # today = pd.Timestamp.today().strftime('%Y-%m-%d')
-    # confirmation_json = run_confirmation_agent(ingredients, matched_inventory, context, today, tokens_filename=tokens_filename)
+    # confirmation_json = run_confirmation_agent(ingredients, matched_inventory, context, tokens_filename=tokens_filename)
     # return {
     #     "context": context,
     #     "recipe": recipe,

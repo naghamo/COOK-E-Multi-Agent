@@ -275,7 +275,7 @@ agent = initialize_agent(
 # ------------------------------------------------------------------
 # 6. Agent Runner with Token Logging
 # ------------------------------------------------------------------
-def retrieve_recipe(parsed_request, tokens_filename="../tokens/total_tokens_Seva.txt")-> str:
+def retrieve_recipe(parsed_request, tokens_filename="../tokens/total_tokens_Seva.txt"):
     """
     Invoke the agent on parsed_request and log token usage.
     Returns the agent's JSON response as a string.
