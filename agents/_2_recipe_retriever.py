@@ -275,7 +275,7 @@ agent = initialize_agent(
 # ------------------------------------------------------------------
 # 6. Agent Runner with Token Logging
 # ------------------------------------------------------------------
-def run_agent(parsed_request):
+def retrieve_recipe(parsed_request, tokens_filename="../tokens/total_tokens_Seva.txt")-> str:
     """
     Invoke the agent on parsed_request and log token usage.
     Returns the agent's JSON response as a string.
@@ -286,7 +286,7 @@ def run_agent(parsed_request):
             f"\nTokens | prompt {cb.prompt_tokens}  "
             f"completion {cb.completion_tokens}  total {cb.total_tokens}"
         )
-        update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Seva.txt")
+        update_total_tokens(cb.total_tokens, filename=tokens_filename)
     return result
 
 # ------------------------------------------------------------------
@@ -318,4 +318,4 @@ if __name__ == "__main__":
 
     print("\n=== Request 2 ===")
     print(json.dumps(req2, indent=2, ensure_ascii=False))
-    print("\nAgent response:\n", run_agent(req2))
+    print("\nAgent response:\n", retrieve_recipe(req2))

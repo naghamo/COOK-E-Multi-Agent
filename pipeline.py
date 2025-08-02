@@ -1,81 +1,92 @@
-# from agents.llm_context_parser import parse_context
-# from agents.recipe_retriever import retrieve_recipe
-# from agents.feasibility_checker import check_feasibility
-# from agents.recipe_parser import parse_recipe
-# from agents.inventory_filter import filter_inventory
-# from agents.product_matcher import match_products
-# from agents.market_selector import select_market
-# from agents.cart_delivery_validator import validate_cart
-# from agents.order_confirmation import confirm_order
-# from agents.order_execution import execute_order
-#
+# agents_pipeline.py
 
-def run_cooke_pipeline(user_text, user_inventory):
-    print("Running Cooke pipeline with user input:", user_text)
+"""
+COOK·E Full Pipeline Runner
+--------------------------
+This file defines the pipeline orchestration logic for your COOK·E project.
+Each agent is responsible for a single, clear task. The pipeline is split into logical blocks
+to enable both full runs and partial runs (for debugging or stepwise user interaction).
 
-def run_pipeline_to_inventory_confirmation(user_text, user_inventory):
-    """Run until we know what the user already has and need user confirmation"""
+Agent mapping (by order & responsibility):
+ _1_llm_context_parser.py         --> parse_context
+ 2_recipe_retriever.py           --> retrieve_recipe
+ 3_cart_delivery_validator.py    --> validate_cart
+ 4_recipe_parser.py              --> parse_recipe
+ 5_Inventory Matcher.py          --> run_matcher_agent
+ 6_inventory_confirmation.py     --> run_confirmation_agent
+ 7_inventory_filter.py           --> run_inventory_filter_agent
+ 8_product_matcher.py            --> match_products
+ 9_market_selector.py            --> select_market
+10_order_confirmation.py         --> confirm_order
+11_order_execution.py            --> execute_order
+"""
+import pandas as pd
+# --- Import all agent runners  ---
+from agents._1_llm_context_parser import parse_context
+from agents._2_recipe_retriever import retrieve_recipe
+# # from agents._3_cart_delivery_validator import validate_cart
+# from agents._4_recipe_parser import build_scaled_ingredient_list
+# from agents._5_Inventory_Matcher import run_matcher_agent
+# from agents._6_inventory_confirmation import run_confirmation_agent
+# from agents._7_inventory_filter import run_inventory_filter_agent
+
+# --- Pipeline Functions ---
+def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/total_tokens.txt"):
+    """
+    Runs pipeline up to the inventory confirmation stage (before user confirmation).
+    Returns parsed context, recipe, ingredients, and the list for confirmation.
+    """
     # 1. Parse user context
-    # context = parse_context(user_text)
-    # if not context.get('food_name'):
-    #     return {"error": "No food name provided.", "context": context}
-    #
-    # # 2. Feasibility check (constraints, allergies, budget, basic plausibility)
-    # feasible = check_feasibility(context)
-    # if not feasible:
-    #     return {"error": "Request not feasible (budget/ingredients/constraints).", "context": context}
-    #
-    # # 3. Retrieve/generate recipe
+    context = parse_context(user_text, tokens_filename=tokens_filename)
+    if context['error']: # If there is an error in context parsing, return it
+        return {"error": f"{context['error']}"}
+    # 2. Retrieve recipe based on context
+    recipe = retrieve_recipe(context, tokens_filename=tokens_filename)
+    print(recipe)
+    if recipe['feasible']:
+        return {"error": f"No feasible recipe found for the given context,{recipe['reason']}"}
+    # #3. Parse recipe ingredients
+    # ingredients = build_scaled_ingredient_list(context,recipe, tokens_filename=tokens_filename)
+    #4. Run inventory matcher agent
+    # matched_inventory = run_matcher_agent(ingredients, user_inventory, tokens_filename=tokens_filename)
+    #5. Run confirmation agent
+    # today = pd.Timestamp.today().strftime('%Y-%m-%d')
+    # confirmation_json = run_confirmation_agent(ingredients, matched_inventory, context, today, tokens_filename=tokens_filename)
+    # return {
+    #     "context": context,
+    #     "recipe": recipe,
+    #     "ingredients": ingredients,
+    #     "matched_inventory": matched_inventory,
+    #     "confirmation_json": confirmation_json,
+    # }
+
+
+
+    print(recipe)
+
     # recipe = retrieve_recipe(context)
     # if not recipe:
     #     return {"error": "No matching recipe found.", "context": context}
     #
-    # # 4. Parse recipe into ingredients
     # ingredients = parse_recipe(recipe)
-    #
-    # # 5. Inventory confirmation: Decide for each ingredient if user has enough at home, and ask user
-    # # (This usually returns a list of questions/messages for the user, and the partial to-buy list)
-    # ingredient_questions, need_confirmation = inventory_confirmation_agent(ingredients, user_inventory)
+    # matched_inventory = run_matcher_agent(ingredients, user_inventory)
+    # today = pd.Timestamp.today().strftime('%Y-%m-%d')
+    # confirmation_json = run_confirmation_agent(ingredients, matched_inventory, context, today)
     #
     # return {
     #     "context": context,
     #     "recipe": recipe,
     #     "ingredients": ingredients,
-    #     "inventory_questions": ingredient_questions,
-    #     "need_confirmation": need_confirmation,
-    #     # "to_buy_initial": initial_to_buy,  # Optional: initial guess
+    #     "matched_inventory": matched_inventory,
+    #     "confirmation_json": confirmation_json,
     # }
-    pass
+    #
+
+# --- Usage Example ---
+if __name__ == "__main__":
+    user_text = "Vegetarian lasagna for 6 people, no mushrooms, under 80 NIS, delivery"
+
+    result=run_pipeline_to_inventory_confirmation(user_text,tokens_filename="tokens/total_tokens_Nagham.txt")
 
 
-def run_pipeline_until_payment(context, recipe, confirmed_to_buy):
-    # """Continue from confirmed inventory, through product matching, market selection, validation, confirmation, and payment"""
-    # # 1. Product matching (ingredient -> real supermarket products)
-    # products = match_products(confirmed_to_buy, context)
-    #
-    # # 2. Market selection (find cheapest, best, or preferred supermarket(s))
-    # market_plan = select_market(products, context)
-    #
-    # # 3. Cart & delivery validation
-    # cart_ok, cart_result = validate_cart(market_plan, context)
-    # if not cart_ok:
-    #     return {
-    #         "error": cart_result,
-    #         "market_plan": market_plan,
-    #         "context": context
-    #     }
-    #
-    # # 4. (Optional) Show cart to user for confirmation before execution
-    # confirmation = confirm_order(cart_result)
-    #
-    # # 5. Execute order if user confirms
-    # execution_result = execute_order(cart_result)
-    #
-    # return {
-    #     "cart": cart_result,
-    #     "confirmation": confirmation,
-    #     "execution_result": execution_result,
-    #     "context": context
-    # }
-    pass
-
+    print(result)

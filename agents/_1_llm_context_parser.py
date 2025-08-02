@@ -1,7 +1,11 @@
+import json
+import re
+
 from langchain_community.callbacks import get_openai_callback
 from langchain_community.chat_models import AzureChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import HumanMessage
+
 from tokens.tokens_count import update_total_tokens
 from dotenv import load_dotenv
 import os
@@ -46,9 +50,14 @@ User Request: {user_input}
 """
 # Create a ChatPromptTemplate from the context template
 prompt_template = ChatPromptTemplate.from_template(context_template)
-
+def extract_json_from_llm(text):
+    text = text.strip()
+    match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return text
 # Function to generate context from user input
-def generate_context(user_input):
+def parse_context(user_input, tokens_filename="../tokens/total_tokens_Nagham.txt"):
     formatted_prompt = prompt_template.format(user_input=user_input)
     messages = [HumanMessage(content=formatted_prompt)]
     with get_openai_callback() as cb:
@@ -56,11 +65,19 @@ def generate_context(user_input):
         print("Prompt tokens:", cb.prompt_tokens)
         print("Completion tokens:", cb.completion_tokens)
         print("Total tokens (this run):", cb.total_tokens)
-        update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Nagham.txt")
-    return response.content
+        update_total_tokens(cb.total_tokens, filename=tokens_filename)
+    # Extract JSON from the response content
+    json_content = extract_json_from_llm(response.content)
+    # Parse the JSON content
+    try:
+        parsed_content = json.loads(json_content)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Failed to parse JSON from response: {e}")
+
+    return parsed_content
 
 
 if __name__ == "__main__":
     # Example user input
-    inp = "Vegan pizza for 5 under 40₪ with pickup, no mushrooms"
-    print(generate_context(inp))
+    inp = "play"
+    print(parse_context(inp))
