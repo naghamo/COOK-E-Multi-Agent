@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os, ast, uuid, json
 from typing import List, Dict, Any
 from typing_extensions import TypedDict, Optional
@@ -75,7 +77,7 @@ ingredient_list_schema = {
 # 3. LLM Parsing Functions
 # ──────────────────────────────────────────────────────────────
 
-def parse_ingredients_llm(lines: List[str]) -> List[Dict[str, Any]]:
+def parse_ingredients_llm(lines: List[str],tokens_filename="../tokens/total_tokens_Seva.txt") -> List[Dict[str, Any]]:
     """
     Parse a list of ingredient lines into structured JSON using the LLM.
     Returns a list of dicts with keys: name, quantity, unit, note.
@@ -118,7 +120,7 @@ def parse_ingredients_llm(lines: List[str]) -> List[Dict[str, Any]]:
         )
         # Log token usage
         print(f"\nTokens | prompt {cb.prompt_tokens}  completion {cb.completion_tokens}  total {cb.total_tokens}")
-        update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Seva.txt")
+        update_total_tokens(cb.total_tokens, filename=tokens_filename)
 
     # Extract and parse function arguments
     func_call = response.additional_kwargs["function_call"]
@@ -221,12 +223,28 @@ def convert_both(qty, unit: str) -> Dict[str, Any]:
         us_qty=round(q_us.magnitude, 2),
         us_unit=str(q_us.units)
     )
+def get_scaled_ingredients_list(ingredients) -> List[dict]:
+    """
+    Extracts only the ingredient name, scaled quantity, and scaled unit for each ingredient.
+    Returns: List of dicts with keys: name, quantity, unit
+    """
+
+    scaled_list = []
+    for ing in ingredients:
+
+        scaled = ing["scaled"]
+        scaled_list.append({
+            "name": ing["name"],
+            "quantity": scaled["metric_qty"],
+            "unit": scaled["metric_unit"]
+        })
+    return scaled_list
 
 # ──────────────────────────────────────────────────────────────
 # 8. Full Pipeline: Scale & Convert Ingredients
 # ──────────────────────────────────────────────────────────────
 
-def build_scaled_ingredient_list(user_req: Dict[str, Any], recipe: Dict[str, Any]) -> Dict[str, Any]:
+def build_scaled_ingredient_list(user_req: Dict[str, Any], recipe: Dict[str, Any],tokens_filename) -> list[dict]:
     """
     Given a user request and recipe JSON, parse ingredients, scale by servings,
     and return both metric & US conversions for each ingredient.
@@ -236,7 +254,7 @@ def build_scaled_ingredient_list(user_req: Dict[str, Any], recipe: Dict[str, Any
     raw_lines = recipe["ingredients"]
 
     # Step 1: Parse raw ingredient lines via LLM
-    parsed = parse_ingredients_llm(raw_lines)
+    parsed = parse_ingredients_llm(raw_lines,tokens_filename)
 
     result = []
     for ing in parsed:
@@ -254,15 +272,16 @@ def build_scaled_ingredient_list(user_req: Dict[str, Any], recipe: Dict[str, Any
             "orig":   {"qty": ing["quantity"], "unit": ing["unit"]},
             "scaled": dual
         })
-
+    return get_scaled_ingredients_list(result)
     # Return full payload
-    return {
-        "food_name":           recipe["title"],
-        "servings_original":   recipe["servings"],
-        "servings_requested":  user_req["people"],
-        "scale_factor":        round(ratio, 3),
-        "ingredients":         result
-    }
+    # return {
+    #     "food_name":           recipe["title"],
+    #     "servings_original":   recipe["servings"],
+    #     "servings_requested":  user_req["people"],
+    #     "scale_factor":        round(ratio, 3),
+    #     "ingredients":         result
+    # }
+
 
 # ──────────────────────────────────────────────────────────────
 # 9. CLI / Script Entry Point

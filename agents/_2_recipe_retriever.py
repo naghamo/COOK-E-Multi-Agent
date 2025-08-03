@@ -4,6 +4,7 @@
 import os
 import json
 import ast
+import re
 from typing import Optional, Dict, List, Union
 from dotenv import load_dotenv
 
@@ -271,11 +272,24 @@ agent = initialize_agent(
     agent_kwargs = {"system_message": SYSTEM_PROMPT},
     verbose    = True,
 )
-
+def extract_recipe_dict(agent_response: dict) -> dict:
+    """
+    Takes the agent's output dict and returns the parsed recipe dict.
+    Expects the recipe JSON to be inside a markdown ```json ... ``` block.
+    """
+    output = agent_response.get('output', '')
+    # Find code block (markdown triple-backtick, possibly with 'json')
+    match = re.search(r"```json\s*(\{.*?\})\s*```", output, flags=re.DOTALL)
+    if not match:
+        raise ValueError("Could not find recipe JSON in output.")
+    recipe_json_str = match.group(1)
+    # Parse JSON
+    recipe_dict = json.loads(recipe_json_str)
+    return recipe_dict
 # ------------------------------------------------------------------
 # 6. Agent Runner with Token Logging
 # ------------------------------------------------------------------
-def run_agent(parsed_request):
+def retrieve_recipe(parsed_request, tokens_filename="../tokens/total_tokens_Seva.txt"):
     """
     Invoke the agent on parsed_request and log token usage.
     Returns the agent's JSON response as a string.
@@ -286,8 +300,10 @@ def run_agent(parsed_request):
             f"\nTokens | prompt {cb.prompt_tokens}  "
             f"completion {cb.completion_tokens}  total {cb.total_tokens}"
         )
-        update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Seva.txt")
-    return result
+        update_total_tokens(cb.total_tokens, filename=tokens_filename)
+    if isinstance(result, str):
+        return json.loads(result)
+    return extract_recipe_dict(result)
 
 # ------------------------------------------------------------------
 # 7. CLI Demo
@@ -318,4 +334,4 @@ if __name__ == "__main__":
 
     print("\n=== Request 2 ===")
     print(json.dumps(req2, indent=2, ensure_ascii=False))
-    print("\nAgent response:\n", run_agent(req2))
+    print("\nAgent response:\n", retrieve_recipe(req2))

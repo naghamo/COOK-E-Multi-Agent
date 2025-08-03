@@ -9,7 +9,7 @@ def update_total_tokens(new_tokens, filename="../tokens/total_tokens.txt"):
     total += new_tokens
     with open(filename, "w") as f:
         f.write(str(total))
-    print(f"Updated grand total tokens: {total}")
+    # print(f"Updated grand total tokens: {total}")
     return total
 
 
