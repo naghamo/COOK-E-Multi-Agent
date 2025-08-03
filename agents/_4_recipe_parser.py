@@ -320,5 +320,5 @@ if __name__ == "__main__":
         "directions": ["Cook noodles...", "Whisk sauce...", "Combine..."]
     }
 
-    final_json = build_scaled_ingredient_list(user_request_json, recipe_json)
+    final_json = build_scaled_ingredient_list(user_request_json, recipe_json, tokens_filename="../tokens/total_tokens_Seva.txt")
     print(json.dumps(final_json, indent=2, ensure_ascii=False))

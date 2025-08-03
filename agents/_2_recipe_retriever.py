@@ -212,7 +212,7 @@ preferences.
 • Document every substitution and change you made in the _notes_ field of your final output.
 
 
-Ignore logistics fields
+Ignore logistics fields entirely:
 • delivery / pickup  
 • budget / price ceilings  
 • people / servings counts  
@@ -230,15 +230,14 @@ Args schema:
 }
 
 Tool‑use rules  (MAX 3 calls)  
-1. **Call#1:** broad search — omit query_params entirely.  
-2. Inspect the hits. If they contain forbidden ingredients that can be
-    simply omitted or swapped, **keep the hit and edit it** instead of
-    excluding those ingredients in the filter.
-3. Use exclude keywords **only** when the ingredient is fundamental or poses a strict allergy risk.
-4. At most 3 total calls; otherwise return the *Not feasible* JSON.
+1. **Call#1:** Perform a broad search using `get_recipes` — **omit** `query_params` entirely.  
+2. Inspect the hits.  
+   • If they contain forbidden ingredients that can be simply omitted or swapped, **keep the hit and edit it** instead of excluding those ingredients in the filter.  
+   • Otherwise, try a refined search by adding appropriate `include` and/or `exclude` keywords in `query_params` to narrow the results.  
+3. If you find a candidate recipe but think it could be improved, you may make **one additional refinement call** (e.g., adjust filters or include extra keywords) to try and get a better match.  
+4. You may make at most **3 total calls**. If you find a suitable recipe, or recipe with simple substitutions, work with it. Otherwise return the *Not feasible* JSON.
 
-Return EXACTLY ONE of
-
+Return EXACTLY ONE of the following JSON schemas. Start the response with ```json and end it with ```.
 Feasible recipe
 {
   "feasible": true,
@@ -261,7 +260,8 @@ Workflow summary
 • Start with broad search.  
 • Refine only when necessary (≤2 extra calls).  
 • Prefer include/exclude on ingredients or keywords; adjust match_mode.  
-• Finally, output ONE of the JSON structures above, nothing else.
+• Finally, Output ONLY valid JSON, one of the structures with the fields above. No extra text.
+
 """.strip())
 
 # Initialize the agent with function-calling support
@@ -319,10 +319,19 @@ if __name__ == "__main__":
         "error": None
     }
 
+    # req2 = {
+    #     "food_name": "Peanut satay noodles",
+    #     "people": 2,
+    #     "special_requests": "no peanuts, must be peanut satay sauce, no substitutions",
+    #     "raw_text": "Peanut satay noodles without peanuts, no substitutions",
+    #     "extra_fields": {},
+    #     "error": None
+    # }
+
     req2 = {
         "food_name": "Peanut satay noodles",
         "people": 2,
-        "special_requests": "no peanuts, must be peanut satay sauce",
+        "special_requests": "no peanuts",
         "raw_text": "Peanut satay noodles without peanuts",
         "extra_fields": {},
         "error": None
@@ -330,7 +339,7 @@ if __name__ == "__main__":
 
     # print("\n=== Request 1 ===")
     # print(json.dumps(req1, indent=2, ensure_ascii=False))
-    # print("\nAgent response:\n", run_agent(req1))
+    # print("\nAgent response:\n", retrieve_recipe(req1))
 
     print("\n=== Request 2 ===")
     print(json.dumps(req2, indent=2, ensure_ascii=False))
