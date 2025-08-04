@@ -213,6 +213,7 @@ def choose_best_market_llm(
         substitutions=temp_basket.substitutions
     )
 
+
     store_totals = defaultdict(float)
 
     # Convert IngredientSelection to Product objects
