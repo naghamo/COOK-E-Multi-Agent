@@ -185,18 +185,16 @@ def gpt_pick_for_batch(
       [ { idx: 0, picks: [ {cid: "c1", packs_needed: 2}, … ] }, … ]
     """
     sys_prompt = """
-        For each ingredient choose all of the candidate **cid**s (zero or more) that match
-        the store bought ingredient based on name (ignore size/unit).  For each chosen cid decide how many
-        packs to buy so TOTAL quantity ≥ to_buy_min (you may estimate if units differ).
-        
-        Respond STRICTLY as JSON (no markdown):
+        Choose candidate cids (zero or more) that match each ingredient name.
+        Buy enough packs so total qty ≥ to_buy_min (handle unit conversion).
+        Return **only** JSON (example):
         
         [
           { "idx": 0,
-            "picks": [ { "cid": "c1", "packs_needed": 2 }, ... ]
+            "picks":[{"cid":"c1","packs_needed":2}]
           }
         ]
-    """
+        """
 
     payload = [
         {
@@ -205,7 +203,7 @@ def gpt_pick_for_batch(
             "to_buy_min": n["to_buy_min"],
             "to_buy_unit": n["to_buy_unit"],
             "candidates": [
-                {"cid": f"c{j}", "name": p.name, "quantity": p.size, "unit": p.unit}
+                {"cid": f"c{j}", "name": p.name, "qty": p.size, "unit": p.unit}
                 for j, p in enumerate(pl)
             ],
         }
@@ -214,7 +212,7 @@ def gpt_pick_for_batch(
 
     msgs = [
         SystemMessage(sys_prompt),
-        HumanMessage(json.dumps(payload, ensure_ascii=False, indent=2)),
+        HumanMessage(json.dumps(payload, separators=(',', ':'), ensure_ascii=False)),
     ]
 
     with get_openai_callback() as cb:
