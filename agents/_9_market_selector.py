@@ -130,7 +130,7 @@ def _calculate_store_analysis(
     store_ingredient_coverage = defaultdict(set)
     store_costs = defaultdict(dict)
 
-    # Calculate coverage and costs per store
+    # Calculate coverage, costs, and promotions per store
     for ing in required_ingredients:
         for cid, product in cid_lookup.get(ing, {}).items():
             store_id = product.supermarket_id
@@ -145,7 +145,70 @@ def _calculate_store_analysis(
                     'cid': cid
                 }
 
-    analysis_lines = ["### Single Store Analysis:"]
+    analysis_lines = ["### Comprehensive Store Analysis:"]
+
+    # Add new section: Multi-store combination analysis
+    analysis_lines.append("\n#### MULTI-STORE OPTIMIZATION ANALYSIS:")
+
+    # Find optimal 2-store combinations
+    store_list = list(store_ingredient_coverage.keys())
+    best_two_store_combo = None
+    best_two_store_cost = float('inf')
+
+    for i, store1 in enumerate(store_list):
+        for store2 in store_list[i + 1:]:
+            combined_coverage = store_ingredient_coverage[store1] | store_ingredient_coverage[store2]
+            if len(combined_coverage) == len(required_ingredients):
+                # Calculate optimal distribution between two stores
+                store1_items = []
+                store2_items = []
+                total_cost = 0
+
+                for ing in required_ingredients:
+                    store1_price = store_costs[store1].get(ing, {}).get('price', float('inf'))
+                    store2_price = store_costs[store2].get(ing, {}).get('price', float('inf'))
+
+                    if store1_price <= store2_price and store1_price != float('inf'):
+                        store1_items.append(ing)
+                        total_cost += store1_price
+                    elif store2_price != float('inf'):
+                        store2_items.append(ing)
+                        total_cost += store2_price
+
+                # Add delivery fees
+                store1_meta = stores_meta.get(store1, {})
+                store2_meta = stores_meta.get(store2, {})
+                store1_subtotal = sum(store_costs[store1].get(ing, {}).get('price', 0) for ing in store1_items)
+                store2_subtotal = sum(store_costs[store2].get(ing, {}).get('price', 0) for ing in store2_items)
+
+                # Check minimum orders
+                if store1_subtotal >= store1_meta.get('min_order', 0) and store2_subtotal >= store2_meta.get(
+                        'min_order', 0):
+                    total_with_delivery = total_cost + store1_meta.get('delivery_fee', 0) + store2_meta.get(
+                        'delivery_fee', 0)
+
+                    if total_with_delivery < best_two_store_cost:
+                        best_two_store_cost = total_with_delivery
+                        best_two_store_combo = {
+                            'stores': [store1, store2],
+                            'distribution': {store1: store1_items, store2: store2_items},
+                            'total': total_with_delivery,
+                            'items_cost': total_cost,
+                            'delivery_fees': store1_meta.get('delivery_fee', 0) + store2_meta.get('delivery_fee', 0)
+                        }
+
+    if best_two_store_combo:
+        analysis_lines.append(
+            f"  Best 2-store combination: {best_two_store_combo['stores'][0]} + {best_two_store_combo['stores'][1]}"
+        )
+        analysis_lines.append(
+            f"  Total cost: {best_two_store_combo['total']:.1f} "
+            f"(items {best_two_store_combo['items_cost']:.1f} + delivery {best_two_store_combo['delivery_fees']})"
+        )
+        for store, items in best_two_store_combo['distribution'].items():
+            analysis_lines.append(f"    {store}: {', '.join(items)}")
+
+    analysis_lines.append("\n#### SINGLE STORE ANALYSIS:")
 
     complete_stores = []
     incomplete_stores = []
@@ -422,31 +485,68 @@ def choose_best_market_llm(
     # ===== STEP 2: PREPARE LLM PROMPTS =====
 
     system_prompt = (
-        "You are a meticulous grocery planner optimizing for cost and user preferences. "
+        "You are an expert grocery optimization system that makes intelligent trade-offs between cost, convenience, and user preferences.\n\n"
+
+        "DECISION FRAMEWORK:\n"
+        "1. **Single Store Request Analysis**:\n"
+        "   - If user wants single store, first check if any store has ALL ingredients\n"
+        "   - Calculate the TRUE cost difference between single-store and multi-store options\n"
+        "   - If single-store total is >30% more expensive, suggest multi-store in notes but still follow preference\n"
+        "   - If no store has all items, find the store with MOST coverage and explain missing items\n\n"
+
+        "2. **Multi-Store Optimization Rules**:\n"
+        "   - NEVER use a store for just 1-2 items unless absolutely necessary\n"
+        "   - Each store order MUST meet minimum order requirement unless it is absolutely worth the delivery fee\n"
+        "   - Consider 2-store maximum unless user explicitly allows more\n"
+        "   - Group ingredients logically (e.g., all produce from one store if prices are similar)\n\n"
+
+        "3. **Cost Calculation Priorities**:\n"
+        "   - ALWAYS include delivery fees in total cost comparisons\n"
+        "   - Factor in promotions (Buy 1 Get 1 effectively halves the price)\n"
+        "   - Consider price-per-unit, not just absolute price\n"
+        "   - Missing minimum order = wasted delivery fee\n\n"
+
+        "4. **Smart Substitution Logic**:\n"
+        "   - If an ingredient forces multi-store due to availability, check if substitution makes sense\n"
+        "   - You can suggest user to not order 'delivery' from a specific store if it is not smart to do so"
+        "   For example, ordering one single item while not meeting minimum order requirement, or paying high delivery fee doesnt make sense.\n"
+        "   You should suggest user to not order a delivery for it in notes in that case, or add it to the order delivery from a store that met minimum requirement.\n"
+        "   - Always explain substitutions clearly in notes\n"
+        "   - Consider store ratings when prices are very close (within 10%)\n\n"
+
+        "5. **Decision Transparency**:\n"
+        "   - In store_summary notes, explain WHY you chose this configuration\n"
+        "   - In product notes, explain any non-obvious choices\n"
+        "   - If deviating from user preference, show the cost savings clearly\n\n"
+
         "CRITICAL RULES:\n"
-        "1. EVERY ingredient MUST have a product selected from the available options\n"
-        "2. RESPECT user preferences - they are NOT suggestions, they are REQUIREMENTS\n"
-        "3. If user wants single_store=True, you MUST prioritize complete stores over individual item prices\n"
-        "4. Calculate TOTAL cost including ALL delivery fees - not just item prices\n"
-        "5. Use 'notes' fields to explain your reasoning and any trade-offs\n\n"
-        "SINGLE STORE PRIORITY:\n"
-        "- When single_store is requested, find stores that have ALL or MOST ingredients\n"
-        "- e.g. a ₪50 item from one store is better than ₪30 items from multiple stores with delivery fees\n"
-        "- Only use multiple stores if NO single store can provide reasonable coverage\n\n"
-        "COST CALCULATION:\n"
-        "- Always include delivery fees in your cost analysis\n"
-        "- Multiple stores = multiple delivery fees = often more expensive total\n"
-        "- Compare TOTAL cost (items + delivery) not just item prices\n\n"
-        "OPTIMIZATION PRIORITY:\n"
-        "1. Follow user's store preference (single vs multi)\n"
-        "2. Select products that minimize TOTAL cost (including delivery)\n"
-        "3. Explain reasoning and any deviations from user's request clearly in 'notes'\n\n"
-        "Remember: User preferences are constraints, not suggestions. Total cost matters more than individual item prices."
+        "- Every ingredient MUST be selected\n"
+        "- Respect single_store preference unless impossible\n"
+        "- Minimize total cost INCLUDING all delivery fees\n"
+        "- Ensure each store order meets minimum requirement\n"
+        "- Provide clear reasoning for all decisions"
     )
+
+    budget_section = ""
+    if filtered_prefs.get("budget"):
+        budget = filtered_prefs["budget"]
+        budget_section = (
+            f"\n### BUDGET CONSTRAINT: {budget}\n"
+            f"You MUST ensure the total cost (including ALL delivery fees) stays within this budget.\n"
+            f"If impossible with single store, explain this clearly and suggest best multi-store option.\n"
+            f"If impossible to satisfy the budget, still try to minimize the cost, explain in notes that you were unable to fulfill the requirement.\n"
+        )
+
+    # Add minimum order warnings section
+    min_order_section = "\n### MINIMUM ORDER REQUIREMENTS:\n"
+    for store_id, meta in stores_meta.items():
+        min_order_section += f"  {store_id}: {meta['min_order']} minimum ({meta['delivery_fee']} delivery)\n"
 
     user_prompt = (
         f"### REQUIRED INGREDIENTS (you must match a product for ALL of these):\n{', '.join(required_ingredients)}\n\n"
-        f"### User preferences\n{json.dumps(filtered_prefs, ensure_ascii=False)}\n\n"
+        f"### User preferences\n{json.dumps(filtered_prefs, ensure_ascii=False)}\n"
+        f"{budget_section}"
+        f"{min_order_section}\n"
         f"### Stores metadata\n{json.dumps(stores_meta, ensure_ascii=False)}\n\n"
         "### HOW TO READ THE PRODUCT TABLE:\n"
         "Each product has a unique CID (Compact ID) in format: [ingredient_index]-[store]-[rank]\n"
@@ -584,12 +684,24 @@ def choose_best_market_llm(
 # ===============================================================================
 
 if __name__ == "__main__":
+    # user_prefs = {
+    #     "food_name": "Peanut satay noodles",
+    #     "people": 2,
+    #     "delivery": "delivery",
+    #     "budget": 100,
+    #     "raw_text": "Try to find cheapest available order, under ₪100",
+    #     "special_requests": "",
+    #     "extra_fields": {
+    #         "single_store": False
+    #     }
+    # }
+
     user_prefs = {
         "food_name": "Peanut satay noodles",
         "people": 2,
         "delivery": "delivery",
         "budget": 150,
-        "raw_text": "I'd like everything from one store if possible, under ₪150",
+        "raw_text": "If possible order everything from the same store, under ₪150",
         "special_requests": "",
         "extra_fields": {
             "single_store": True

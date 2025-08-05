@@ -236,7 +236,7 @@ def gpt_pick_for_batch(
             function_call={"name": "ingredient_list"}  # force call
         )
 
-        # print(f"\nTokens | prompt {cb.prompt_tokens}  completion {cb.completion_tokens}  total {cb.total_tokens}")
+        print(f"\nTokens | prompt {cb.prompt_tokens}  completion {cb.completion_tokens}  total {cb.total_tokens}")
         update_total_tokens(cb.total_tokens, filename=tokens_filename)
 
     # ---------- parse GPT output ----------
