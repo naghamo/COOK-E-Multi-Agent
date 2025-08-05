@@ -56,7 +56,21 @@ UNIT_SYNONYMS = {
     "lb": "pound", "lbs": "pound", "pounds": "pound",
     "pc": "piece", "pcs": "piece", "pieces": "piece",
     "tab": "tablet", "tabs": "tablet", "tablets": "tablet",
-    "pack": "pack", "packs": "pack"
+    "pack": "pack", "packs": "pack",
+
+    # Cooking-specific units
+    "tsp": "teaspoon", "teaspoons": "teaspoon", "teasp": "teaspoon",
+    "tbsp": "tablespoon", "tablespoons": "tablespoon", "tbsps": "tablespoon",
+    "cup": "cup", "cups": "cup", "c": "cup",
+    "fl oz": "fluid_ounce", "floz": "fluid_ounce", "fluid ounce": "fluid_ounce",
+
+    # Common grocery units
+    "each": "piece", "ea": "piece", "unit": "piece", "units": "piece",
+    "can": "can", "cans": "can", "jar": "jar", "jars": "jar",
+    "bottle": "bottle", "bottles": "bottle", "btl": "bottle",
+
+    # Weight variations
+    "gm": "gram", "grm": "gram", "kilo": "kilogram", "kilos": "kilogram",
 }
 
 # ---------------------------------------------------------------
@@ -231,7 +245,8 @@ def gpt_pick_for_batch(
             response.additional_kwargs["function_call"]["arguments"]
         )
         raw = raw_container.get("items", [])
-    except Exception:
+    except Exception as e:
+        print(f"Warning: LLM response parsing failed: {e}")
         raw = [{"idx": i, "picks": []} for i in range(len(needs))]
 
     # ---------- cid  →  full-product dict ----------
@@ -314,6 +329,7 @@ if __name__ == "__main__":
         {'name': 'salt', 'to_buy_min': 1, 'to_buy_unit': 'teaspoons'},
         {'name': 'garlic', 'to_buy_min': 3, 'to_buy_unit': 'cloves'},
         {'name': 'onion', 'to_buy_min': 5, 'to_buy_unit': 'units'},
+        {'name': 'bread', 'to_buy_min': 1, 'to_buy_unit': 'loaf'},
     ]
 
     matched = asyncio.run(match_all_stores(ingredient_list))
