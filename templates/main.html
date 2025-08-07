@@ -23,69 +23,72 @@
     </nav>
 
     <main>
+        <!-- GLOBAL ERROR DISPLAY -->
+        {% if error %}
+        <div class="error" style="color:#a00;background:#fff8e0;padding:10px;margin-bottom:20px;">
+            <b>Error:</b> {{ error }}
+        </div>
+        {% endif %}
+
         <section class="welcome-box card">
             <h1>COOK·E – Cognitive Organized Online Kitchen Expert</h1>
             <p>
                 Welcome, professional chef!<br>
-
             </p>
         </section>
         {% if not request %}
-    <section class="card" style="margin-top: 10px; background: #fffef3;">
-  <h2>👋 Meet COOK·E – Your Autonomous Cooking Assistant</h2>
-  <p>
-    Please tell me what you're <strong>willing to cook</strong>  for example:<br>
-    <code>“I want to make a vegan shakshuka for 4 people, no tofu, under 50 NIS, home delivery.”</code>
-  </p>
-  <p>
-    I'll take care of everything:
-    <ul>
-      <li>✅ Find or generate the perfect recipe</li>
-      <li>✅ Check your home inventory</li>
-      <li>✅ Match missing ingredients to real supermarket products</li>
-      <li>✅ Choose the best store based on price, availability, and delivery</li>
-      <li>✅ Process the payment and place the order</li>
-    </ul>
-  </p>
-  <p>You can include in your request:</p>
-  <ul>
-    <li>🍽️ <strong>The dish you want to cook</strong> (required!)</li>
-    <li>👥 How many people you're serving</li>
-    <li>🍃 Special requests (e.g., vegan, gluten-free, halal, no tofu)</li>
-    <li>💰 Your budget</li>
-    <li>🚚 Delivery or pickup preference</li>
-      <li>and more</li>
-    <li>🛑 <strong>No random questions please</strong> — just real cooking plans!</li>
-  </ul>
-  <p><strong>Ready?</strong> Just type your request below and let’s get cooking! 🛒🔥</p>
-</section>
-
-        <!-- New Request Section -->
+        <!-- Intro & New Request Section -->
+        <section class="card" style="margin-top: 10px; background: #fffef3;">
+            <h2>👋 Meet COOK·E – Your Autonomous Cooking Assistant</h2>
+            <p>
+                Please tell me what you're <strong>willing to cook</strong>  for example:<br>
+                <code>“I want to make a vegan shakshuka for 4 people, no tofu, under 50 NIS, home delivery.”</code>
+            </p>
+            <p>
+                I'll take care of everything:
+                <ul>
+                    <li>✅ Find or generate the perfect recipe</li>
+                    <li>✅ Check your home inventory</li>
+                    <li>✅ Match missing ingredients to real supermarket products</li>
+                    <li>✅ Choose the best store based on price, availability, and delivery</li>
+                    <li>✅ Process the payment and place the order</li>
+                </ul>
+            </p>
+            <p>You can include in your request:</p>
+            <ul>
+                <li>🍽️ <strong>The dish you want to cook</strong> (required!)</li>
+                <li>👥 How many people you're serving</li>
+                <li>🍃 Special requests (e.g., vegan, gluten-free, halal, no tofu)</li>
+                <li>💰 Your budget</li>
+                <li>🚚 Delivery or pickup preference</li>
+                <li>and more</li>
+                <li>🛑 <strong>No random questions please</strong> — just real cooking plans!</li>
+            </ul>
+            <p><strong>Ready?</strong> Just type your request below and let’s get cooking! 🛒🔥</p>
+        </section>
 
         <section id="request-section" class="card">
-    <form method="POST" action="/submit_request" class="form-row">
-    <input type="text" name="user_input" required placeholder="What would you like to cook today?" autocomplete="off">
-    <button type="submit" class="primary-btn">Submit</button>
-</form>
-
-</section>
+            <form method="POST" action="/submit_request" class="form-row">
+                <input type="text" name="user_input" required placeholder="What would you like to cook today?" autocomplete="off" value="{{ user_input or '' }}">
+                <button type="submit" class="primary-btn">Submit</button>
+            </form>
+        </section>
         {% endif %}
-{% if request %}
+
+        {% if request %}
         <!-- Request Result Section -->
-<section id="request-result-section" class="card">
+        <section id="request-result-section" class="card">
+            <h2>Request in Progress</h2>
+            <p id="user-input-text" class="typing-text"></p>
+            <div id="loading-indicator" class="loading hidden">
+                <span>Analyzing your request</span>
+                <span class="dot">.</span>
+                <span class="dot">.</span>
+                <span class="dot">.</span>
+            </div>
 
-    <h2>Request in Progress</h2>
-    <p id="user-input-text" class="typing-text"></p>
-<div id="loading-indicator" class="loading hidden">
-  <span>Analyzing your request</span>
-  <span class="dot">.</span>
-  <span class="dot">.</span>
-  <span class="dot">.</span>
-</div>
-
-
-    <!-- Result/Confirmation Section -->
-        {% if conf_type == 'conf' %}
+            <!-- Result/Confirmation Section -->
+            {% if conf_type == 'conf' %}
 <section id="ingredient-confirmation" class="card">
     <h2>Ingredient Confirmation</h2>
     <form method="POST" action="/confirm_ingredient">
@@ -101,12 +104,10 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for ing in first_conf_req %}
+                    {% for ing in confirmation_list %}
                     <tr>
                         <td>{{ ing.name }}</td>
-                        <td>
-                            {{ ing.requested_quantity }}
-                        </td>
+                        <td>{{ ing.requested_quantity }}</td>
                         <td>
                             <input type="number" min="0" name="to_buy_min_{{ loop.index0 }}" value="{{ ing.to_buy_min }}" style="width:60px;">
                         </td>
@@ -118,7 +119,7 @@
                             </select>
                         </td>
                         <td>
-                            <small>May be higher depending on store products</small>
+                            <small>{{ ing.explanation }}</small>
                         </td>
                     </tr>
                     {% endfor %}
@@ -128,146 +129,152 @@
         <button type="submit" class="primary-btn" style="margin-top:20px;">Confirm All</button>
     </form>
 </section>
-
-{% endif %}
-    {% if payment_conf %}
-<section id="result-section" class="card highlight">
-    <h2>Review &amp; Pay</h2>
-    <h3>Supermarket: {{ supermarket }}</h3>
-    <div>
-        <b>Delivery:</b> {{ delivery.time }} (Fee: ₪{{ delivery.fee }})
-    </div>
-    <div class="table-responsive">
-        <table>
-            <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>Brand</th>
-                    <th>Code</th>
-                    <th>Qty</th>
-                    <th>Unit Price</th>
-                    <th>Promo</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in cart %}
-                <tr>
-                    <td>{{ item.product }}</td>
-                    <td>{{ item.brand }}</td>
-                    <td>{{ item.code }}</td>
-                    <td>{{ item.qty }}</td>
-                    <td>{{ item.unit_price }} ₪</td>
-                    <td>{{ item.promo }}</td>
-                    <td>{{ item.total_price }} ₪</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <p class="total"><b>Total: {{ total_price }} ₪</b></p>
-    <form method="POST" action="/confirm_order">
-        <button type="submit" class="primary-btn">Pay &amp; Order</button>
-    </form>
-</section>
 {% endif %}
 
 
-
-</section>
- {% endif %}
+            {% if payment_conf %}
+            <section id="result-section" class="card highlight">
+                <h2>Review &amp; Pay</h2>
+                <h3>Supermarket: {{ supermarket }}</h3>
+                <div>
+                    <b>Delivery:</b> {{ delivery.time }} (Fee: ₪{{ delivery.fee }})
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Brand</th>
+                                <th>Code</th>
+                                <th>Qty</th>
+                                <th>Unit Price</th>
+                                <th>Promo</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in cart %}
+                            <tr>
+                                <td>{{ item.product }}</td>
+                                <td>{{ item.brand }}</td>
+                                <td>{{ item.code }}</td>
+                                <td>{{ item.qty }}</td>
+                                <td>{{ item.unit_price }} ₪</td>
+                                <td>{{ item.promo }}</td>
+                                <td>{{ item.total_price }} ₪</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="total"><b>Total: {{ total_price }} ₪</b></p>
+                <form method="POST" action="/confirm_order">
+                    <button type="submit" class="primary-btn">Pay &amp; Order</button>
+                </form>
+            </section>
+            {% endif %}
+        </section>
+        {% endif %}
 
         <!-- Home Inventory Section -->
         <section id="inventory-section" class="card">
             <h2>Home Inventory</h2>
             <form method="POST" action="/inventory">
-    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-        <div style="margin-bottom: 10px;">
-    <input type="text" id="inventory-search" placeholder="Search by item name..." style="width: 100%; padding: 8px;">
-</div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th>Quantity</th>
-                    <th>Unit</th>
-                    <th>Earliest Expiry</th>
-                    <th>Delete</th>
-                </tr>
-            </thead>
-            <tbody id="inventory-body">
-                {% for row in inventory %}
-                     {% set idx = loop.index0 %}
-
-                <tr>
-                    <td>
-                        <input type="text" name="name" value="{{ row.name }}" required>
-                    </td>
-                    <td>
-                        <input type="number" min="0" name="quantity" value="{{ row.quantity }}" required>
-                    </td>
-                    <td>
-    <select name="unit">
-    {% for unit in units %}
-        <option value="{{ unit }}" {% if row.unit == unit %}selected{% endif %}>{{ unit|capitalize }}</option>
-    {% endfor %}
-    <option value="other">Other...</option>
-</select>
-
-    <input type="text" name="custom_unit" class="unit-input"
-        value="{% if row.unit not in ['units', 'grams', 'kg', 'ml', 'l'] %}{{ row.unit }}{% endif %}"
-        style="display: {% if row.unit not in ['units', 'grams', 'kg', 'ml', 'l'] %}inline{% else %}none{% endif %}; width: 70px; margin-top: 5px;"
-        placeholder="Unit...">
-</td>
-
-                    <td>
-                        <input type="date" name="expiry" value="{{ row.expiry }}" required>
-                    </td>
-                    <td>
-                        <button type="submit" name="delete_idx" value="{{ idx }}" class="edit-btn" style="background:#fff0f0;color:#a00;">🗑️</button>
-                    </td>
-                </tr>
-                {% endfor %}
-            <tr>
-                    <td>
-                        <input type="text" name="new_name" placeholder="Add new item...">
-                    </td>
-                    <td>
-                        <input type="number" min="0" name="new_quantity" placeholder="Qty">
-                    </td>
-                    <td>
-    <select name="new_unit" onchange="toggleUnitInput(this)">
-        <option value="units">Units</option>
-        <option value="grams">Grams</option>
-        <option value="kg">Kg</option>
-        <option value="ml">Ml</option>
-        <option value="l">L</option>
-        <option value="other">Other...</option>
-    </select>
-    <input type="text" name="new_custom_unit" class="unit-input" style="display:none; width: 70px; margin-top: 5px;" placeholder="Unit...">
-</td>
-
-                    <td>
-                        <input type="date" name="new_expiry">
-                    </td>
-                    <td></td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-    <button type="submit" class="primary-btn">Save Changes</button>
-</form>
-
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <div style="margin-bottom: 10px;">
+                        <input type="text" id="inventory-search" placeholder="Search by item name..." style="width: 100%; padding: 8px;">
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Quantity</th>
+                                <th>Unit</th>
+                                <th>Earliest Expiry</th>
+                                <th>Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-body">
+                            {% for row in inventory or [] %}
+                            {% set idx = loop.index0 %}
+                            <tr>
+                                <td>
+                                    <input type="text" name="name" value="{{ row.name }}" required>
+                                </td>
+                                <td>
+                                    <input type="number" min="0" name="quantity" value="{{ row.quantity }}" required>
+                                </td>
+                                <td>
+                                    <select name="unit">
+                                        {% for unit in units %}
+                                            <option value="{{ unit }}" {% if row.unit == unit %}selected{% endif %}>{{ unit|capitalize }}</option>
+                                        {% endfor %}
+                                        <option value="other">Other...</option>
+                                    </select>
+                                    <input type="text" name="custom_unit" class="unit-input"
+                                           value="{% if row.unit not in ['units', 'grams', 'kg', 'ml', 'l'] %}{{ row.unit }}{% endif %}"
+                                           style="display: {% if row.unit not in ['units', 'grams', 'kg', 'ml', 'l'] %}inline{% else %}none{% endif %}; width: 70px; margin-top: 5px;"
+                                           placeholder="Unit...">
+                                </td>
+                                <td>
+                                    <input type="date" name="expiry" value="{{ row.expiry }}" required>
+                                </td>
+                                <td>
+                                    <button type="submit" name="delete_idx" value="{{ idx }}" class="edit-btn" style="background:#fff0f0;color:#a00;">🗑️</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            <tr>
+                                <td>
+                                    <input type="text" name="new_name" placeholder="Add new item...">
+                                </td>
+                                <td>
+                                    <input type="number" min="0" name="new_quantity" placeholder="Qty">
+                                </td>
+                                <td>
+                                    <select name="new_unit" onchange="toggleUnitInput(this)">
+                                        <option value="units">Units</option>
+                                        <option value="grams">Grams</option>
+                                        <option value="kg">Kg</option>
+                                        <option value="ml">Ml</option>
+                                        <option value="l">L</option>
+                                        <option value="other">Other...</option>
+                                    </select>
+                                    <input type="text" name="new_custom_unit" class="unit-input" style="display:none; width: 70px; margin-top: 5px;" placeholder="Unit...">
+                                </td>
+                                <td>
+                                    <input type="date" name="new_expiry">
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button type="submit" class="primary-btn">Save Changes</button>
+            </form>
         </section>
 
-       <!-- Old Requests Section -->
-<section id="old-requests-section" class="card">
+        <!-- Old Requests Section -->
+        <section id="old-requests-section" class="card">
     <h2>Old Requests</h2>
     <ul>
-        {% for req in old_requests %}
+        {% for req in old_requests or [] %}
             <li>
-                <strong>{{ req['text'] }}</strong><br>
+                <strong>{{ req['user_text'] or req['text'] }}</strong>
+                {% if req['recipe_title'] %}
+                    <br>
+                    <b>Recipe:</b> {{ req['recipe_title'] }} (servings: {{ req['recipe_servings'] }})
+                {% endif %}
+                {% if req['directions_list'] %}
+                    <br>
+                    <b>Directions:</b>
+                    <ol style="margin-top:0.5em;">
+                        {% for step in req['directions_list'] %}
+                            <li>{{ step }}</li>
+                        {% endfor %}
+                    </ol>
+                {% endif %}
+                <br>
                 <small>
                     User: {{ req['user'] }},
                     Date: {{ req['timestamp'] }}
@@ -278,7 +285,6 @@
         {% endfor %}
     </ul>
 </section>
-
 
 
     </main>
@@ -304,18 +310,18 @@
     const textEl = document.getElementById("user-input-text");
 
     function typeUserInput() {
-      if (i === 0) loadingEl.classList.remove("hidden");
+      if (i === 0 && loadingEl) loadingEl.classList.remove("hidden");
 
       if (i < userText.length) {
         textEl.textContent += userText.charAt(i);
         i++;
         setTimeout(typeUserInput, 30);
       } else {
-        loadingEl.classList.add("hidden");
+        if (loadingEl) loadingEl.classList.add("hidden");
       }
     }
 
-    typeUserInput();
+    if (textEl && userText) typeUserInput();
 
     // Unit input handler
     document.querySelectorAll('select[name="unit"], select[name="new_unit"]').forEach(function (sel) {
@@ -324,16 +330,14 @@
         toggleUnitInput(sel);
       });
     });
-  });
-  document.addEventListener('DOMContentLoaded', function () {
+
+    // Inventory search
     document.getElementById('inventory-search').addEventListener('input', function () {
       const query = this.value.toLowerCase();
       const rows = document.querySelectorAll('#inventory-body tr');
-
       rows.forEach(row => {
-        const itemCell = row.querySelector('td'); // First <td> (with the input)
+        const itemCell = row.querySelector('td');
         const input = itemCell?.querySelector('input');
-
         const itemText = input?.value?.toLowerCase() || '';
         row.style.display = itemText.includes(query) ? '' : 'none';
       });

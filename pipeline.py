@@ -42,7 +42,6 @@ def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/to
         return {"error": f"{context['error']}"}
     # 2. Retrieve recipe based on context
     recipe = retrieve_recipe(context, tokens_filename=tokens_filename)
-    print(recipe)
     if not recipe['feasible']:# If no feasible recipe is found, return an error
         return {"error": f"No feasible recipe found for the given context,{recipe['reason']}"}
     #3. Parse recipe ingredients
@@ -58,11 +57,6 @@ def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/to
         "matched_inventory": matched_inventory,
         "confirmation_json": confirmation_json,
     }
-
-
-
-    print(ingredients)
-
 
 
 # --- Usage Example ---

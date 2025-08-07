@@ -1,8 +1,9 @@
+import json
 import os
 
 import pandas as pd
 from flask import Flask, render_template, request, redirect, session, url_for
-from pipeline import run_cooke_pipeline
+from pipeline import run_pipeline_to_inventory_confirmation
 from datetime import datetime
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -56,9 +57,16 @@ def save_inventory(rows):
     df = pd.DataFrame(rows)
     df.to_csv(INVENTORY_CSV, index=False)
 
-
-
-
+@app.template_filter('from_json')
+def from_json_filter(s):
+    if not s:
+        return []
+    if isinstance(s, str):
+        try:
+            return json.loads(s)
+        except Exception:
+            return [s]
+    return s
 @app.route('/submit_request', methods=['POST'])
 def submit_request():
     if 'user' not in session:
@@ -67,39 +75,49 @@ def submit_request():
     units_list = load_units()
     user_text = request.form.get('user_input')
     # Call the pipeline
-    # first_conf_req,conf_type = run_cooke_pipeline(user_text, inventory)
+    result = run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/total_tokens.txt")
     old_requests = load_old_requests()
-    #add the request to old requests
-    # request_data = {
-    #     "user": session['user'],
-    #     "text": user_text,
-    #     "result": result,
-    #     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    # }
-    # save_old_request(request_data)
+    print(result)
+    if 'error' in result:
+        # Show error to user in main.html
+        return render_template(
+            'main.html',
+            user=session['user'],
+            inventory=inventory,
+            old_requests=old_requests,
+            error=result['error'],
+            units=units_list,
+            user_input=user_text,
+            request=False
+        )
 
-    first_conf_req = [{
-        'name': 'tomato',
-        'requested_quantity': 4,
-        'requested_unit': 'pcs',
-        'to_buy_min': 3,
-        'to_buy_unit': 'pcs',
-        'editing': False
-    }]
-    conf_type = "conf"
+    # ---- ADD TO OLD REQUESTS ----
+    request_data = {
+        "user": session['user'],
+        "user_text": user_text,
+        "recipe_title": result['recipe'].get('title', ''),
+        "directions": json.dumps(result['recipe'].get('directions', []), ensure_ascii=False),
+        "recipe_servings": result['context'].get('people', ''),
+        "recipe_ingredients": json.dumps(result['ingredients'], ensure_ascii=False),
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
 
-    # Render main.html with all context
+    save_old_request(request_data)
+
+    # --- Show confirmation to user ---
+    confirmation_list = result['confirmation_json']
     return render_template(
         'main.html',
         user=session['user'],
         inventory=inventory,
-        old_requests=old_requests,
-        first_conf_req=first_conf_req,
-        conf_type=conf_type,
+        old_requests=load_old_requests(),
+        confirmation_list=confirmation_list,
         units=units_list,
         user_input=user_text,
-        request=True
+        request=True,
+    conf_type='conf'
     )
+
 
 @app.route('/confirm_ingredient', methods=['POST'])
 def confirm_ingredient():

@@ -1,20 +1,39 @@
+# Web and core
 flask~=3.1.1
-pandas~=2.2.3
-kagglehub~=0.3.12
-numpy~=1.26.4
-pint
-
-protobuf~=6.31.1
 python-dotenv
-openai>=1.6.0
+
+# Data handling
+pandas~=2.2.3
+numpy~=1.26.4
+
+# Vector DB and search
 qdrant-client>=1.6.3
 
+# ML & embeddings
+kagglehub~=0.3.12
 langchain==0.3.27
 langchain-community==0.3.27
 langchain-core==0.3.72
 langchain-openai==0.3.28
 langchain-huggingface>=0.0.2
 
+# OpenAI
+openai>=1.6.0
+
+# Data models
 pydantic==2.11.7
 
+# Units and conversions
+pint
+
+# tqdm for progress bars
+tqdm
+
+protobuf~=6.31.1
+
+# Fast fuzzy matching
+rapidfuzz
+
+#
+typing-extensions
 

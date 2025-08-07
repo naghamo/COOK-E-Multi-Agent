@@ -94,6 +94,8 @@ def run_confirmation_agent(df_recipe, matched_inventory, parsed_user_input,token
     """
     # Format inventory for prompt
     today = datetime.today().strftime('%Y-%m-%d')
+    if isinstance(df_recipe, list):
+        df_recipe = pd.DataFrame(df_recipe)
     if isinstance(matched_inventory, list):
         df_inventory_for_prompt = pd.DataFrame(matched_inventory).to_string(index=False)
     else:
