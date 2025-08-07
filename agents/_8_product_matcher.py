@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------
-# 0. Imports & global data (unchanged)
+# 0. Imports & global data
 # ---------------------------------------------------------------
 import os, asyncio, concurrent.futures as cf, json, re, pint
 from dataclasses import dataclass, asdict
@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ---------------------------------------------------------------
-# Azure LLM client (unchanged)
+# Azure LLM client
 # ---------------------------------------------------------------
 AZURE_OPENAI_API_KEY = os.environ["AZURE_OPENAI_API_KEY"]
 DEPLOYMENT_NAME = "team10-gpt4o"
@@ -103,7 +103,6 @@ class CsvSupermarket:
             CsvSupermarket.supermarkets_df["supermarket"] == self.market_id
             ]
         if info_df.empty:
-            # graceful fallback so the pipeline doesn't crash
             self.meta_data = {"supermarket": self.market_id, "note": "metadata not found"}
         else:
             self.meta_data = info_df.iloc[0].to_dict()
@@ -127,6 +126,7 @@ class CsvSupermarket:
         # Positional indices are now safe with .iloc
         subset = self.df.iloc[[m[2] for m in matches]].copy()
 
+        # Trying to convert to desired units
         def convert_or_none(row):
             try:
                 qty_conv = (row.parsed_qty * ureg(row.parsed_unit)).to(desired_unit).magnitude
@@ -138,7 +138,7 @@ class CsvSupermarket:
 
         products = []
         for _, row in subset.head(k).iterrows():
-            if row.qty_conv is not None:  # convertible ✔
+            if row.qty_conv is not None:  # convertible
                 size = row.qty_conv
                 unit = need["to_buy_unit"]  # canonical user-unit
             else:  # keep original
@@ -329,7 +329,8 @@ if __name__ == "__main__":
         {'name': 'salt', 'to_buy_min': 1, 'to_buy_unit': 'teaspoons'},
         {'name': 'garlic', 'to_buy_min': 3, 'to_buy_unit': 'cloves'},
         {'name': 'onion', 'to_buy_min': 5, 'to_buy_unit': 'units'},
-        {'name': 'bread', 'to_buy_min': 1, 'to_buy_unit': 'loaf'},
+        # {'name': 'bread', 'to_buy_min': 1, 'to_buy_unit': 'loaf'},
+        # {'name': 'milk', 'to_buy_min': 1, 'to_buy_unit': 'liter'},
     ]
 
     matched = asyncio.run(match_all_stores(ingredient_list))
