@@ -107,12 +107,20 @@ class TempBasketChoice(BaseModel):
     selection: Dict[str, IngredientSelection] = Field(default_factory=dict)
     store_summary: Dict[str, StoreSummary] = Field(default_factory=dict)
 
+class InfeasibleBasket(BaseModel):
+    """
+    Response when the basket request cannot be fulfilled.
+    """
+    feasible: bool = False
+    reason: str  # Why the request is infeasible
+    suggestions: List[str] = Field(default_factory=list)  # Alternative suggestions
 
 class BasketChoice(BaseModel):
     """
     Final output schema with complete product objects.
     This is what gets returned to the user.
     """
+    feasible: bool = True
     selection: Dict[str, FullProduct] = Field(default_factory=dict)
     store_summary: Dict[str, StoreSummary] = Field(default_factory=dict)
 
@@ -124,17 +132,20 @@ class BasketChoice(BaseModel):
 def _calculate_store_analysis(
         cid_lookup: Dict[str, Dict[str, FullProduct]],
         required_ingredients: List[str],
-        stores_meta: Dict) -> str:
-    """Calculate single-store coverage analysis for the LLM"""
+        stores_meta: Dict,
+        user_budget: float = None) -> str:
+    """Calculate single-store coverage analysis for the LLM to help it make a decision"""
 
     store_ingredient_coverage = defaultdict(set)
     store_costs = defaultdict(dict)
 
-    # Calculate coverage, costs, and promotions per store
+    # Check for completely missing ingredients
+    all_available_ingredients = set()
     for ing in required_ingredients:
         for cid, product in cid_lookup.get(ing, {}).items():
             store_id = product.supermarket_id
             store_ingredient_coverage[store_id].add(ing)
+            all_available_ingredients.add(ing)
 
             # Track cheapest price per ingredient per store
             current_cheapest = store_costs[store_id].get(ing, {}).get('price', float('inf'))
@@ -145,8 +156,56 @@ def _calculate_store_analysis(
                     'cid': cid
                 }
 
+    missing_ingredients = set(required_ingredients) - all_available_ingredients
+
     analysis_lines = ["### Comprehensive Store Analysis:"]
 
+    # Add infeasibility context if needed
+    if missing_ingredients:
+        analysis_lines.append("\n#### CRITICAL INFEASIBILITY WARNING:")
+        analysis_lines.append(
+            f"The following ingredients have NO products in ANY store: **{', '.join(missing_ingredients)}**")
+        analysis_lines.append("This request may be INFEASIBLE without removing these ingredients.")
+
+    # Calculate minimum possible cost
+    if user_budget:
+        min_possible_cost = 0
+        cheapest_delivery = min(meta.get("delivery_fee", 0) for meta in stores_meta.values())
+
+        for ing in required_ingredients:
+            cheapest_price = float('inf')
+            for store_costs_dict in store_costs.values():
+                if ing in store_costs_dict:
+                    cheapest_price = min(cheapest_price, store_costs_dict[ing]['price'])
+            if cheapest_price != float('inf'):
+                min_possible_cost += cheapest_price
+
+        min_total_with_delivery = min_possible_cost + cheapest_delivery
+
+        if min_total_with_delivery > user_budget:
+            budget_excess = min_total_with_delivery - user_budget
+            excess_percentage = (budget_excess / user_budget * 100)
+
+            if excess_percentage > 200:  # 3x the budget
+                analysis_lines.append(f"\n#### SEVERE BUDGET INFEASIBILITY:")
+                analysis_lines.append(f"Minimum cost is {excess_percentage:.0f}% over budget!")
+            elif excess_percentage > 50:
+                analysis_lines.append(f"\n#### BUDGET WARNING:")
+            else:
+                analysis_lines.append(f"\n#### SMALL BUDGET WARNING:")
+
+            analysis_lines.append(
+                f"Minimum possible cost: {min_total_with_delivery:.1f} "
+                f"({min_possible_cost:.1f} items + {cheapest_delivery} delivery)"
+            )
+            analysis_lines.append(
+                f"This EXCEEDS budget of ₪{user_budget} by {budget_excess:.1f} ({excess_percentage:.0f}%)"
+            )
+
+            if excess_percentage > 200:
+                analysis_lines.append("This request is likely INFEASIBLE without significant changes.")
+            else:
+                analysis_lines.append("Consider still making a basket, but prompt a user to review it.")
     # Add new section: Multi-store combination analysis
     analysis_lines.append("\n#### MULTI-STORE OPTIMIZATION ANALYSIS:")
 
@@ -406,7 +465,7 @@ if "type" not in temp_basket_schema:
 temp_basket_schema.setdefault("required", ["selection"])
 
 # Define the function that the LLM will call
-BASKET_CHOICE_FN = {
+BASKET_FN = {
     "name": "basket_choice",
     "description": (
         "Return a JSON object with EXACTLY these keys:\n"
@@ -424,6 +483,27 @@ BASKET_CHOICE_FN = {
 }
 
 
+# Generate JSON schema for infeasible basket
+infeasible_schema = InfeasibleBasket.model_json_schema()
+if "type" not in infeasible_schema:
+    infeasible_schema = {"type": "object", **infeasible_schema}
+
+INFEASIBLE_BASKET_FN = {
+    "name": "infeasible_basket",
+    "description": (
+        "Call this function when the user's request CANNOT be fulfilled.\n"
+        "Use when:\n"
+        "- Required ingredients are completely missing from all stores\n"
+        "- Budget constraint is impossible to meet\n"
+        "- User requirements create an impossible situation\n\n"
+        "Provide:\n"
+        "- reason: Clear explanation of why request is infeasible\n"
+        "- suggestions: List of actionable alternatives (e.g., 'Remove garlic from recipe', "
+        "'Increase budget to at least 200', 'Allow multi-store shopping')\n"
+    ),
+    "parameters": infeasible_schema
+}
+
 # ===============================================================================
 # MAIN PROCESSING FUNCTION - ORCHESTRATES THE ENTIRE PIPELINE
 # ===============================================================================
@@ -432,7 +512,7 @@ def choose_best_market_llm(
         match_output: Dict,
         user_prefs: Dict,
         tokens_filename: str = "../tokens/total_tokens_Seva.txt"
-) -> BasketChoice:
+) -> BasketChoice | InfeasibleBasket:
     """
     Main function: Convert matched ingredients to optimal shopping basket using LLM.
 
@@ -480,7 +560,7 @@ def choose_best_market_llm(
     required_ingredients = list(first_store["desired_ingredients"].keys())
 
     # Generate store coverage analysis for LLM
-    store_analysis = _calculate_store_analysis(cid_lookup, required_ingredients, stores_meta)
+    store_analysis = _calculate_store_analysis(cid_lookup, required_ingredients, stores_meta, user_budget=filtered_prefs.get("budget"))
 
     # ===== STEP 2: PREPARE LLM PROMPTS =====
 
@@ -493,7 +573,7 @@ def choose_best_market_llm(
         "   - Calculate the TRUE cost difference between single-store and multi-store options\n"
         "   - If single-store total is >30% more expensive, suggest multi-store in notes but still follow preference\n"
         "   - If no store has all items, find the store with MOST coverage and explain missing items\n\n"
-
+        
         "2. **Multi-Store Optimization Rules**:\n"
         "   - NEVER use a store for just 1-2 items unless absolutely necessary\n"
         "   - Each store order MUST meet minimum order requirement unless it is absolutely worth the delivery fee\n"
@@ -518,7 +598,14 @@ def choose_best_market_llm(
         "   - In store_summary notes, explain WHY you chose this configuration\n"
         "   - In product notes, explain any non-obvious choices\n"
         "   - If deviating from user preference, show the cost savings clearly\n\n"
-
+        
+        "FEASIBILITY CHECK:\n"
+        "Determine if the request is feasible:\n"
+        "- If any ingredient has NO products in ANY store, the request is INFEASIBLE\n"
+        "- If the cost exceeds way more (3 times more) than the budget constraint, the request is INFEASIBLE\n"
+        "- If user wants single_store but no store has even 50% of ingredients, consider INFEASIBLE\n"
+        "- For infeasible requests, you MUST call the 'infeasible_basket' function instead of 'basket_choice'\n\n"
+            
         "CRITICAL RULES:\n"
         "- Every ingredient MUST be selected\n"
         "- Respect single_store preference unless impossible\n"
@@ -579,12 +666,17 @@ def choose_best_market_llm(
         # Make the LLM call with structured function calling
         response = llm.invoke(
             messages,
-            functions=[BASKET_CHOICE_FN],  # Available functions
-            function_call={"name": "basket_choice"}  # Force specific function call
+            functions=[BASKET_FN, INFEASIBLE_BASKET_FN],  # Added infeasible function
+            function_call=None  # Let LLM choose which function to call
         )
 
-        # Parse the function call response
+        # Check which function was called
+        function_called = response.additional_kwargs["function_call"]["name"]
         payload = json.loads(response.additional_kwargs["function_call"]["arguments"])
+
+        if function_called == 'infeasible_basket':
+            return InfeasibleBasket.model_validate(payload)
+
         temp_basket = TempBasketChoice.model_validate(payload)
 
         # Validate that all ingredients are handled
@@ -702,6 +794,18 @@ if __name__ == "__main__":
         "delivery": "delivery",
         "budget": 150,
         "raw_text": "If possible order everything from the same store, under ₪150",
+        "special_requests": "",
+        "extra_fields": {
+            "single_store": True
+        }
+    }
+
+    smaller_budget_user_prefs = {
+        "food_name": "Peanut satay noodles",
+        "people": 2,
+        "delivery": "delivery",
+        "budget": 15,
+        "raw_text": "If possible order everything from the same store, under ₪15",
         "special_requests": "",
         "extra_fields": {
             "single_store": True
@@ -1141,5 +1245,408 @@ if __name__ == "__main__":
       }
     }
 
-    basket = choose_best_market_llm(matched_ingredients, user_prefs)
+    missing_from_all_matched_ingredients = {
+        "tiv_taam": {
+            "store_info": {
+                "supermarket": "tiv_taam",
+                "delivery_fee": 18,
+                "delivery_time_hr": 2,
+                "min_order": 30,
+                "is_open": True,
+                "rating": 0.5,
+                "url": "https://www.tivtaam.co.il/"
+            },
+            "desired_ingredients": {
+                "olive oil": [],
+                "tomatoes": [],
+                "cheddar": [],
+                "salt": [
+                    {
+                        "supermarket_id": "tiv_taam",
+                        "item_code": "4903001925784.0",
+                        "name": "Yamasa Premium Low Salt Soy Sauce 500 ml",
+                        "size": 101.44206810552905,
+                        "unit": "teaspoons",
+                        "price": 20.9,
+                        "promo": "5 NIS discount",
+                        "packs_needed": 1
+                    }
+                ],
+                "garlic": [],
+                "onion": []
+            }
+        },
+        "yohananof": {
+            "store_info": {
+                "supermarket": "yohananof",
+                "delivery_fee": 15,
+                "delivery_time_hr": 4,
+                "min_order": 40,
+                "is_open": True,
+                "rating": 3.0,
+                "url": "https://yochananof.co.il/"
+            },
+            "desired_ingredients": {
+                "olive oil": [
+                    {
+                        "supermarket_id": "yohananof",
+                        "item_code": "7290003427154.0",
+                        "name": "Extra virgin olive oil",
+                        "size": 59.0,
+                        "unit": "raw",
+                        "price": 38.9,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "tomatoes": [
+                    {
+                        "supermarket_id": "yohananof",
+                        "item_code": "7290016372342.0",
+                        "name": "Kobe trio tomatoes",
+                        "size": 88.0,
+                        "unit": "raw",
+                        "price": 17.9,
+                        "promo": None,
+                        "packs_needed": 4
+                    }
+                ],
+                "cheddar": [
+                    {
+                        "supermarket_id": "yohananof",
+                        "item_code": "7290102300822.0",
+                        "name": "English Cheddar Cheese (Cut)",
+                        "size": 80.0,
+                        "unit": "raw",
+                        "price": 28.1,
+                        "promo": None,
+                        "packs_needed": 4
+                    }
+                ],
+                "salt": [],
+                "garlic": [],
+                "onion": []
+            }
+        },
+        "shufersal": {
+            "store_info": {
+                "supermarket": "shufersal",
+                "delivery_fee": 21,
+                "delivery_time_hr": 3,
+                "min_order": 60,
+                "is_open": True,
+                "rating": 1.3,
+                "url": "https://www.shufersal.co.il/online/"
+            },
+            "desired_ingredients": {
+                "olive oil": [],
+                "tomatoes": [],
+                "cheddar": [],
+                "salt": [],
+                "garlic": [
+                    {
+                        "supermarket_id": "shufersal",
+                        "item_code": "7290000999456.0",
+                        "name": "Garlic in a package",
+                        "size": 16.0,
+                        "unit": "raw",
+                        "price": 5.9,
+                        "promo": "5% off",
+                        "packs_needed": 1
+                    }
+                ],
+                "onion": [
+                ]
+            }
+        },
+        "rami_levy": {
+            "store_info": {
+                "supermarket": "rami_levy",
+                "delivery_fee": 15,
+                "delivery_time_hr": 4,
+                "min_order": 30,
+                "is_open": True,
+                "rating": 1.5,
+                "url": "https://www.rami-levy.co.il/he"
+            },
+            "desired_ingredients": {
+                "olive oil": [
+                    {
+                        "supermarket_id": "rami_levy",
+                        "item_code": "7290118661382.0",
+                        "name": "Olive oil for light Primio",
+                        "size": 77.0,
+                        "unit": "raw",
+                        "price": 24.9,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "tomatoes": [
+                    {
+                        "supermarket_id": "rami_levy",
+                        "item_code": "7290000208022.0",
+                        "name": "Prepare crushed tomatoes",
+                        "size": 38.0,
+                        "unit": "raw",
+                        "price": 10.8,
+                        "promo": None,
+                        "packs_needed": 8
+                    }
+                ],
+                "cheddar": [
+                    {
+                        "supermarket_id": "rami_levy",
+                        "item_code": "7290002857365.0",
+                        "name": "White English Cheddar 200 g",
+                        "size": 200.0,
+                        "unit": "gr",
+                        "price": 19.1,
+                        "promo": "5 NIS discount",
+                        "packs_needed": 2
+                    }
+                ],
+                "salt": [
+                    {
+                        "supermarket_id": "rami_levy",
+                        "item_code": "7290004064464.0",
+                        "name": "Coarse salt in a 1 kg bag",
+                        "size": 1.0,
+                        "unit": "kilogram",
+                        "price": 1.8,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "garlic": [
+                    {
+                        "supermarket_id": "rami_levy",
+                        "item_code": "7290000208930.0",
+                        "name": "Yachin crushed garlic 180",
+                        "size": 72.0,
+                        "unit": "raw",
+                        "price": 6.5,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "onion": []
+            }
+        },
+        "victory": {
+            "store_info": {
+                "supermarket": "victory",
+                "delivery_fee": 21,
+                "delivery_time_hr": 2,
+                "min_order": 30,
+                "is_open": True,
+                "rating": 1.9,
+                "url": "https://www.victoryonline.co.il/"
+            },
+            "desired_ingredients": {
+                "olive oil": [
+                    {
+                        "supermarket_id": "victory",
+                        "item_code": "72961209.0",
+                        "name": "15% Olive Oil 200 ml in a bottle",
+                        "size": 200.0,
+                        "unit": "ml",
+                        "price": 2.81,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "tomatoes": [
+                    {
+                        "supermarket_id": "victory",
+                        "item_code": "7290000208022.0",
+                        "name": "Crushed tomatoes Yachin (800 grams)",
+                        "size": 800.0,
+                        "unit": "gr",
+                        "price": 10.9,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "cheddar": [],
+                "salt": [
+                    {
+                        "supermarket_id": "victory",
+                        "item_code": "3183280028036.0",
+                        "name": "Coarse Atlantic Sea Salt in Balein (1 kg)",
+                        "size": 1.0,
+                        "unit": "kilogram",
+                        "price": 17.9,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "garlic": [
+                    {
+                        "supermarket_id": "victory",
+                        "item_code": "7290000000459.0",
+                        "name": "Bulk garlic made in China",
+                        "size": 48.0,
+                        "unit": "raw",
+                        "price": 29.9,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "onion": [
+                ]
+            }
+        },
+        "osher_ad": {
+            "store_info": {
+                "supermarket": "osher_ad",
+                "delivery_fee": 16,
+                "delivery_time_hr": 2,
+                "min_order": 50,
+                "is_open": True,
+                "rating": 3.7,
+                "url": "https://osherad.co.il/"
+            },
+            "desired_ingredients": {
+                "olive oil": [
+                    {
+                        "supermarket_id": "osher_ad",
+                        "item_code": "7290005437069.0",
+                        "name": "Olive oil for the taste of 1 light",
+                        "size": 30.0,
+                        "unit": "raw",
+                        "price": 19.9,
+                        "promo": "Buy 1 Get 1",
+                        "packs_needed": 2
+                    }
+                ],
+                "tomatoes": [
+                    {
+                        "supermarket_id": "osher_ad",
+                        "item_code": "7290009000115.0",
+                        "name": "Cherry tomatoes",
+                        "size": 85.0,
+                        "unit": "raw",
+                        "price": 15.9,
+                        "promo": None,
+                        "packs_needed": 4
+                    }
+                ],
+                "cheddar": [
+                    # {
+                    #   "supermarket_id": "osher_ad",
+                    #   "item_code": "7290017065786.0",
+                    #   "name": "Grated Cheddar Cheese 200 g",
+                    #   "size": 200.0,
+                    #   "unit": "gr",
+                    #   "price": 20.9,
+                    #   "promo": "Buy 1 Get 1",
+                    #   "packs_needed": 2
+                    # }
+                ],
+                "salt": [
+                    {
+                        "supermarket_id": "osher_ad",
+                        "item_code": "7290002319580.0",
+                        "name": "Mia Lemon Salt 100 gr",
+                        "size": 100.0,
+                        "unit": "gram",
+                        "price": 5.8,
+                        "promo": "5 NIS discount",
+                        "packs_needed": 1
+                    }
+                ],
+                "garlic": [
+                    {
+                        "supermarket_id": "osher_ad",
+                        "item_code": "6936613888667.0",
+                        "name": "4 heads of garlic",
+                        "size": 67.0,
+                        "unit": "raw",
+                        "price": 4.9,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "onion": [
+                ]
+            }
+        },
+        "mega": {
+            "store_info": {
+                "supermarket": "mega",
+                "delivery_fee": 11,
+                "delivery_time_hr": 4,
+                "min_order": 50,
+                "is_open": True,
+                "rating": 0.5,
+                "url": "https://mega-dummy-store.co.il/"
+            },
+            "desired_ingredients": {
+                "olive oil": [
+                    {
+                        "supermarket_id": "mega",
+                        "item_code": "7290006374660.0",
+                        "name": "Extra virgin olive oil",
+                        "size": 83.0,
+                        "unit": "raw",
+                        "price": 44.9,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "tomatoes": [
+                    {
+                        "supermarket_id": "mega",
+                        "item_code": "3270190192749.0",
+                        "name": "Whole peeled tomatoes",
+                        "size": 60.0,
+                        "unit": "raw",
+                        "price": 10.9,
+                        "promo": None,
+                        "packs_needed": 5
+                    }
+                ],
+                "cheddar": [
+                    {
+                        "supermarket_id": "mega",
+                        "item_code": "7290017065786.0",
+                        "name": "Hard English cheese, Cheddar",
+                        "size": 91.0,
+                        "unit": "raw",
+                        "price": 30.9,
+                        "promo": None,
+                        "packs_needed": 3
+                    }
+                ],
+                "salt": [
+                    {
+                        "supermarket_id": "mega",
+                        "item_code": "7290107061537.0",
+                        "name": "Atlantic sea salt",
+                        "size": 26.0,
+                        "unit": "raw",
+                        "price": 60.0,
+                        "promo": None,
+                        "packs_needed": 1
+                    }
+                ],
+                "garlic": [
+                    {
+                        "supermarket_id": "mega",
+                        "item_code": "7290019094173.0",
+                        "name": "Peeled garlic 170 grams per pack",
+                        "size": 170.0,
+                        "unit": "gram",
+                        "price": 11.0,
+                        "promo": "10 NIS discount",
+                        "packs_needed": 1
+                    }
+                ],
+                "onion": []
+            }
+        }
+    }
+
+    basket = choose_best_market_llm(missing_from_all_matched_ingredients, smaller_budget_user_prefs)
     print(basket.model_dump_json(indent=2))
