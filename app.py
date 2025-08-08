@@ -6,6 +6,7 @@ from flask import Flask, render_template, request, redirect, session, url_for
 from pipeline import run_pipeline_to_inventory_confirmation, run_pipeline_to_order_confirmation, \
     run_pipeline_to_order_execution
 from datetime import datetime
+import pprint
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
@@ -157,18 +158,18 @@ def confirm_ingredient():
             "to_buy_unit": to_buy_unit
         })
         i += 1
-    print(confirmed_ingredients)
-    confirmed_ingredients = [
-        {'name': 'olive oil', 'to_buy_min': 50, 'to_buy_unit': 'ml'},
-        {'name': 'tomatoes', 'to_buy_min': 300, 'to_buy_unit': 'gr'},
-        {'name': 'cheddar', 'to_buy_min': 250, 'to_buy_unit': 'gr'},
-        {'name': 'salt', 'to_buy_min': 1, 'to_buy_unit': 'teaspoons'},
-        {'name': 'garlic', 'to_buy_min': 3, 'to_buy_unit': 'cloves'},
-        {'name': 'onion', 'to_buy_min': 5, 'to_buy_unit': 'units'},
-        {"name": "tomato sauce", "to_buy_min": 500, "to_buy_unit": "milliliter"}
-        # {'name': 'bread', 'to_buy_min': 1, 'to_buy_unit': 'loaf'},
-        # {'name': 'milk', 'to_buy_min': 1, 'to_buy_unit': 'liter'},
-    ]
+    # print(confirmed_ingredients)
+    # confirmed_ingredients = [
+    #     {'name': 'olive oil', 'to_buy_min': 50, 'to_buy_unit': 'ml'},
+    #     {'name': 'tomatoes', 'to_buy_min': 300, 'to_buy_unit': 'gr'},
+    #     {'name': 'cheddar', 'to_buy_min': 250, 'to_buy_unit': 'gr'},
+    #     {'name': 'salt', 'to_buy_min': 1, 'to_buy_unit': 'teaspoons'},
+    #     {'name': 'garlic', 'to_buy_min': 3, 'to_buy_unit': 'cloves'},
+    #     {'name': 'onion', 'to_buy_min': 5, 'to_buy_unit': 'units'},
+    #     {"name": "tomato sauce", "to_buy_min": 500, "to_buy_unit": "milliliter"}
+    #     # {'name': 'bread', 'to_buy_min': 1, 'to_buy_unit': 'loaf'},
+    #     # {'name': 'milk', 'to_buy_min': 1, 'to_buy_unit': 'liter'},
+    # ]
     # 2. Check if everything is at home
     nothing_to_buy = all(item["to_buy_min"] == 0 for item in confirmed_ingredients)
     if nothing_to_buy:
@@ -264,10 +265,13 @@ def confirm_order():
     # -- Assume you saved these as session variables or similar in previous steps
     recipe_title = session.get('last_recipe_title', '')
     recipe_directions = session.get('last_recipe_directions', [])
-    stores = session.get('last_stores', {})
+    stores = pd.read_csv('data\supermarketsDB.csv')['store_name']
+    print("\n--- Incoming form data to /confirm_order ---")
+    pprint.pprint(dict(request.form))
+    print("--- End of form data ---\n")
 
     # 1. Get delivery checkboxes for each store
-    delivery_choices = {store: (request.form.get(f"delivery_{store}") == "yes") for store in stores.keys()}
+    delivery_choices = {store: (request.form.get(f"delivery_{store}") == "yes") for store in stores}
 
     # 2. Run pipeline to generate PDFs for each supermarket (and optionally use LLM for style)
 
