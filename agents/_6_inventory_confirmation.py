@@ -9,6 +9,8 @@ This agent receives:
 
 It returns, for each recipe ingredient, whether and why it needs to be bought, as a JSON list with explanations.
 """
+import json
+import re
 
 import pandas as pd
 from langchain_community.callbacks import get_openai_callback
@@ -53,18 +55,25 @@ Rules:
 - If ingredient is missing, expired (expiry date is **on or before** today's full date), expiring soon (within 3 days from today's full date), or has insufficient quantity → mark for purchase.
 - If expiring soon but available in quantity, still buy full amount.
 - Match ingredients loosely (e.g., "onion" ≈ "red onion").
-- Use same unit as in recipe.
+- **Always use the unit as given in the recipe for all output and for all comparisons.**
+- If the inventory for a matched ingredient is in a different unit, **convert or scale the inventory quantity to the recipe unit before comparing**.
+    - Example: If recipe asks for "100 grams" but inventory has "0.1 kilograms", convert 0.1 kg = 100 grams, then compare to the recipe's required 100 grams.
+    - Another example: If the recipe asks for "2 cups" and inventory has "500 milliliters", convert 500 ml ≈ 2.11 cups (1 cup ≈ 236.6 ml).
+    - If a conversion is not possible, assume the inventory quantity cannot be used and treat as missing.
+- **If the recipe quantity is null or not given, treat it as 1 (one unit of that ingredient). Only check if the ingredient exists and is not expired or expiring soon.**
+- Output all quantities using the same unit as the recipe (requested_unit).
+- For **universal/common household items** (e.g., water, tap water, salt, pepper, oil), if the recipe requires them and the inventory does not explicitly contain them, **assume they are available at home unless the user states otherwise.** In such cases, explain: "common household item, assumed available."
 
 Return a JSON list of dictionaries with:
-- name: ingredient name
-- requested_quantity: quantity from recipe
-- requested_unit: unit from recipe
+- name: ingredient name (from recipe)
+- requested_quantity: quantity from recipe (use 1 if not given)
+- requested_unit: unit from recipe (use "unit" if not present)
 - to_buy_min: amount to buy (0 if not needed)
 - to_buy_unit: same as requested_unit
-- explanation: reason for purchase (e.g., "expired", "expiring in 2 days", "enough at home")
+- explanation: reason for purchase (e.g., "expired", "expiring in 2 days", "not enough after converting units", "enough at home", "common household item, assumed available")
 - exp: write if you checked the expiry date, how many days remain, and if not applicable, state which date you checked.
 
-Only return the JSON list. Nothing else.
+**Only return the JSON list. Nothing else.**
 
 df_recipe:
 {df_recipe}
@@ -79,8 +88,16 @@ today: {today}
 """
 
 
-confirmation_template = ChatPromptTemplate.from_template(confirmation_prompt)
 
+
+confirmation_template = ChatPromptTemplate.from_template(confirmation_prompt)
+# parse the JSON part out
+def extract_json_list_from_codeblock(codeblock_str):
+    match = re.search(r'```json\s*(\[[\s\S]*?\])\s*```', codeblock_str)
+    if not match:
+        raise ValueError("No JSON list found in code block!")
+    json_str = match.group(1)
+    return json.loads(json_str)
 def run_confirmation_agent(df_recipe, matched_inventory, parsed_user_input,tokens_filename="../tokens/total_tokens_Nagham.txt"):
     """
     For each recipe ingredient, determines if it needs to be bought (based on home inventory & rules).
@@ -110,7 +127,12 @@ def run_confirmation_agent(df_recipe, matched_inventory, parsed_user_input,token
         response = chat(messages=prompt)
     update_total_tokens(cb.total_tokens, filename=tokens_filename)
 
-    return response.content
+    # Parse LLM markdown-string to list
+    try:
+        return extract_json_list_from_codeblock(response.content)
+    except Exception as e:
+        print("Error parsing confirmation agent output:", e)
+        return []
 
 # Example usage for debugging and development
 if __name__ == "__main__":

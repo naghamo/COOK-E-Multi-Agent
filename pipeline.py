@@ -29,7 +29,9 @@ from agents._4_recipe_parser import build_scaled_ingredient_list
 from agents._5_Inventory_Matcher import run_matcher_agent
 from agents._6_inventory_confirmation import run_confirmation_agent
 from agents._7_inventory_filter import run_inventory_filter_agent
-
+from agents._8_product_matcher import match_all_stores
+from agents._9_market_selector import choose_best_market_llm
+global_context = {}  # Global variable to store context for later use in the pipeline
 # --- Pipeline Functions ---
 def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/total_tokens.txt"):
     """
@@ -40,12 +42,15 @@ def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/to
     context = parse_context(user_text, tokens_filename=tokens_filename)
     if context['error']: # If there is an error in context parsing, return it
         return {"error": f"{context['error']}"}
+    global global_context
+    global_context = context # Store context globally for later use
     # 2. Retrieve recipe based on context
     recipe = retrieve_recipe(context, tokens_filename=tokens_filename)
     if not recipe['feasible']:# If no feasible recipe is found, return an error
         return {"error": f"No feasible recipe found for the given context,{recipe['reason']}"}
     #3. Parse recipe ingredients
     ingredients = build_scaled_ingredient_list(context,recipe, tokens_filename=tokens_filename)
+    print(f"Parsed ingredients: {ingredients}")
     #4. Run inventory matcher agent
     matched_inventory = run_matcher_agent(ingredients, df_inventory='data/home_inventory.csv', tokens_filename=tokens_filename)
     #5. Run confirmation agent
@@ -57,13 +62,39 @@ def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/to
         "matched_inventory": matched_inventory,
         "confirmation_json": confirmation_json,
     }
+def run_pipeline_to_order_execution(ingredents, tokens_filename="tokens/total_tokens.txt"):
+    '''runs the pipline from first inventory confirmation to order execution.'''
+    global global_context
+    #6. choose products from stores
+    products = match_all_stores(ingredents, tokens_filename=tokens_filename)
+    #7. Select best market based on products
+    best_market = choose_best_market_llm(products,global_context, tokens_filename=tokens_filename)
+    print(best_market)
 
 
 # --- Usage Example ---
 if __name__ == "__main__":
-    user_text = "Vegetarian lasagna for 6 people, no mushrooms, under 80 NIS, delivery"
-
-    result=run_pipeline_to_inventory_confirmation(user_text,tokens_filename="tokens/total_tokens_Nagham.txt")
-
-
-    print(result)
+    # user_text = "Vegetarian lasagna for 6 people, no mushrooms, under 80 NIS, delivery"
+    #
+    # result=run_pipeline_to_inventory_confirmation(user_text,tokens_filename="tokens/total_tokens_Nagham.txt")
+    #secound part of the pipeline
+    global_context = {
+        "food_name": "Vegetarian lasagna",
+        "people": 4,
+        "delivery": "delivery",
+        "special_requests": "no mushrooms",
+        "budget": "under 80 NIS",
+        "raw_text": "Vegetarian lasagna for 4 people, no mushrooms, under 80 NIS, delivery",
+        "extra_fields": {},
+        "error": None
+    }
+    ingredents = [
+        {"name": "lasagna noodles", "quantity": 250, "unit": "gram"},
+        {"name": "olive oil", "quantity": 30, "unit": "milliliter"},
+        {"name": "tomato sauce", "quantity": 500, "unit": "milliliter"},
+        {"name": "onion", "quantity": 1, "unit": "piece"},
+        {"name": "garlic", "quantity": 2, "unit": "clove"},
+        # ...more as needed
+    ]
+    run_pipeline_to_order_execution(ingredents, tokens_filename="tokens/total_tokens.txt")
+    # print(result)

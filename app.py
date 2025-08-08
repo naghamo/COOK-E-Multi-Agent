@@ -77,7 +77,9 @@ def submit_request():
     # Call the pipeline
     result = run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/total_tokens.txt")
     old_requests = load_old_requests()
-    print(result)
+    session['last_user_text'] = user_text
+    session['last_recipe'] = result.get('recipe', {})
+
     if 'error' in result:
         # Show error to user in main.html
         return render_template(
@@ -103,9 +105,14 @@ def submit_request():
     }
 
     save_old_request(request_data)
-
-    # --- Show confirmation to user ---
     confirmation_list = result['confirmation_json']
+    for ing in confirmation_list:
+        u = ing.get("to_buy_unit")
+        if u and u not in units_list:
+            units_list.append(u)
+    save_units(units_list)
+    # --- Show confirmation to user ---
+
     return render_template(
         'main.html',
         user=session['user'],
@@ -123,72 +130,114 @@ def submit_request():
 def confirm_ingredient():
     if 'user' not in session:
         return redirect(url_for('login'))
+
     inventory = load_inventory()
     units_list = load_units()
     old_requests = load_old_requests()
+    user_text = session.get('last_user_text', '')  # How you save user input
+    recipe = session.get('last_recipe', {})        # How you save recipe object
 
     # 1. Get confirmed ingredient info from form
-    # Let's assume first_conf_req is stored in session (or get from request.form as above)
     confirmed_ingredients = []
     i = 0
     while True:
         name = request.form.get(f"name_{i}")
         if not name:
             break
-        to_buy_min = request.form.get(f"to_buy_min_{i}")
+        to_buy_min = float(request.form.get(f"to_buy_min_{i}", 0))
         to_buy_unit = request.form.get(f"to_buy_unit_{i}")
         confirmed_ingredients.append({
             "name": name,
-            "to_buy_min": float(to_buy_min),
+            "to_buy_min": to_buy_min,
             "to_buy_unit": to_buy_unit
         })
         i += 1
 
-    # 2. Run next pipeline step (product matcher, market selector, etc)
-    # You should implement or call something like:
-    #   market_name, delivery, cart, promos, total_price = run_checkout_pipeline(confirmed_ingredients)
-    # For this example, let's mock it:
+    # 2. Check if everything is at home
+    nothing_to_buy = all(item["to_buy_min"] == 0 for item in confirmed_ingredients)
+    if nothing_to_buy:
+        recipe_title = recipe.get('title', '')
+        recipe_servings = recipe.get('servings', '')
+        recipe_ingredients = recipe.get('ingredients', [])  # as list of strings
+        recipe_directions = recipe.get('directions', [])    # as list of strings
 
-    market_name = "Shufersal"
-    delivery = {
-        "fee": 15.9,
-        "time": "Today 18:00-20:00"
-    }
-    cart = [
-        {
-            "product": "Fresh Tomatoes 1kg",
-            "code": "12345678",
-            "brand": "Shufersal",
-            "qty": 1,
-            "unit_price": 9.90,
-            "total_price": 9.90,
-            "promo": "5% off"
-        },
-        {
-            "product": "Olive Oil 750ml",
-            "code": "22334455",
-            "brand": "Yad Mordechai",
-            "qty": 1,
-            "unit_price": 22.90,
-            "total_price": 22.90,
-            "promo": ""
+        # Save in old requests db
+        request_data = {
+            "user": session['user'],
+            "user_text": user_text,
+            "recipe_title": recipe_title,
+            "recipe_servings": recipe_servings,
+            "recipe_ingredients": json.dumps(recipe_ingredients, ensure_ascii=False),
+            "directions": json.dumps(recipe_directions, ensure_ascii=False),
+            "purchase_result": "Nothing to buy - all ingredients at home",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
-    ]
-    total_price = sum([item["total_price"] for item in cart]) + delivery["fee"]
+        save_old_request(request_data)
 
-    # 3. Render payment confirmation page
+        return render_template(
+            'main.html',
+            user=session['user'],
+            inventory=inventory,
+            old_requests=load_old_requests(),
+            units=units_list,
+            user_input=user_text,
+            recipe_title=recipe_title,
+            recipe_servings=recipe_servings,
+            recipe_ingredients=recipe_ingredients,
+            recipe_directions=recipe_directions,
+            request=False,
+            message="All ingredients are available at home! No need to order anything 😊"
+        )
+
+    # 3. Otherwise, proceed with purchase pipeline
+    result = run_pipeline_to_order_execution(user_text, confirmed_ingredients,
+                                             tokens_filename="tokens/total_tokens.txt")
+
+    if 'error' in result or result.get("not_feasible"):
+        # Handle case where no feasible order/cart could be made
+        return render_template(
+            'main.html',
+            user=session['user'],
+            inventory=inventory,
+            old_requests=old_requests,
+            error=result.get('error', "Sorry, the requested order is not feasible."),
+            units=units_list,
+            user_input=user_text,
+            request=True,
+        )
+
+    # If "cart" is empty, show a special message or the recipe summary
+    if not result.get("cart"):
+        return render_template(
+            'main.html',
+            user=session['user'],
+            inventory=inventory,
+            old_requests=old_requests,
+            units=units_list,
+            user_input=user_text,
+            recipe_title=result.get('recipe_title', ''),
+            recipe_directions=result.get('directions', []),
+            recipe_ingredients=result.get('ingredients', []),
+            nothing_to_buy=True,  # special flag for template
+            request=True,
+        )
+
+    # Normal payment confirmation view:
     return render_template(
         'main.html',
         user=session['user'],
         inventory=inventory,
         old_requests=old_requests,
-        supermarket=market_name,
-        delivery=delivery,
-        cart=cart,
-        total_price=total_price,
+        supermarket=result['market_name'],
+        delivery=result['delivery'],
+        cart=result['cart'],
+        total_price=result['total_price'],
         payment_conf=True,
         units=units_list,
+        user_input=user_text,
+        request=True,
     )
+
 
 @app.route('/')
 def index():

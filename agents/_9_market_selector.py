@@ -21,6 +21,7 @@ KEY DESIGN PATTERNS:
 Given the {store_id: {store_info, desired_ingredients}} structure produced
 by match_all_stores(), choose the optimal basket and return canonical JSON.
 """
+from __future__ import annotations
 
 import json, math, os
 from typing import Dict, List, Tuple

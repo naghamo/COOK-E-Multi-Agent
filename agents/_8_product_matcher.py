@@ -1,6 +1,8 @@
 # ---------------------------------------------------------------
 # 0. Imports & global data
 # ---------------------------------------------------------------
+from __future__ import annotations
+
 import os, asyncio, concurrent.futures as cf, json, re, pint
 from dataclasses import dataclass, asdict
 from typing import List
@@ -273,7 +275,7 @@ def gpt_pick_for_batch(
 # ---------------------------------------------------------------
 # 4. Worker for ONE store
 # ---------------------------------------------------------------
-def match_one_store(all_needs: list[dict], store_id: str):
+def match_one_store(all_needs: list[dict], store_id: str,tokens_filename: str = "../tokens/total_tokens_Seva.txt") -> tuple[str, dict]:
     api = CsvSupermarket(store_id)
     cand_per_need = [api.search(n, N_CANDIDATES) for n in all_needs]
 
@@ -284,7 +286,7 @@ def match_one_store(all_needs: list[dict], store_id: str):
         needs_batch  = all_needs[start:start+BATCH_SIZE]
         cands_batch  = cand_per_need[start:start+BATCH_SIZE]
 
-        gpt_out = gpt_pick_for_batch(needs_batch, cands_batch)
+        gpt_out = gpt_pick_for_batch(needs_batch, cands_batch,tokens_filename=tokens_filename)
 
         for obj in gpt_out:
             global_idx = start + obj["idx"]
@@ -309,11 +311,11 @@ SUPERMARKET_IDS = ['tiv_taam',
               'victory',
               'osher_ad',
               'mega']
-async def match_all_stores(ingredients: list[dict]):
+async def match_all_stores(ingredients: list[dict],tokens_filename: str = "../tokens/total_tokens_Seva.txt") -> dict:
     loop = asyncio.get_running_loop()
     with cf.ThreadPoolExecutor() as pool:
         tasks = [
-            loop.run_in_executor(pool, match_one_store, ingredients, sid)
+            loop.run_in_executor(pool, match_one_store, ingredients, sid,tokens_filename)
             for sid in SUPERMARKET_IDS
         ]
         return dict(await asyncio.gather(*tasks))

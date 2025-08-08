@@ -132,49 +132,52 @@
 {% endif %}
 
 
-            {% if payment_conf %}
-            <section id="result-section" class="card highlight">
-                <h2>Review &amp; Pay</h2>
-                <h3>Supermarket: {{ supermarket }}</h3>
-                <div>
-                    <b>Delivery:</b> {{ delivery.time }} (Fee: ₪{{ delivery.fee }})
-                </div>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th>Brand</th>
-                                <th>Code</th>
-                                <th>Qty</th>
-                                <th>Unit Price</th>
-                                <th>Promo</th>
-                                <th>Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in cart %}
-                            <tr>
-                                <td>{{ item.product }}</td>
-                                <td>{{ item.brand }}</td>
-                                <td>{{ item.code }}</td>
-                                <td>{{ item.qty }}</td>
-                                <td>{{ item.unit_price }} ₪</td>
-                                <td>{{ item.promo }}</td>
-                                <td>{{ item.total_price }} ₪</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <p class="total"><b>Total: {{ total_price }} ₪</b></p>
-                <form method="POST" action="/confirm_order">
-                    <button type="submit" class="primary-btn">Pay &amp; Order</button>
-                </form>
-            </section>
-            {% endif %}
-        </section>
-        {% endif %}
+           {% if payment_conf %}
+<section id="result-section" class="card highlight">
+    <h2>Review &amp; Pay</h2>
+    <h3>Supermarket: {{ supermarket }}</h3>
+    <div>
+        <b>Delivery:</b> {{ delivery.time }} (Fee: ₪{{ delivery.fee }})
+    </div>
+    <form method="POST" action="/confirm_order">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Product</th>
+                        <th>Brand</th>
+                        <th>Code</th>
+                        <th>Qty</th>
+                        <th>Unit Price</th>
+                        <th>Promo</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cart %}
+                    <tr>
+                        <td>
+                            <!-- If you want users to select which to buy: -->
+                            <input type="checkbox" name="buy_{{ loop.index0 }}" checked>
+                        </td>
+                        <td>{{ item.product }}</td>
+                        <td>{{ item.brand }}</td>
+                        <td>{{ item.code }}</td>
+                        <td>{{ item.qty }}</td>
+                        <td>{{ item.unit_price }} ₪</td>
+                        <td>{{ item.promo }}</td>
+                        <td>{{ item.total_price }} ₪</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="total"><b>Total: {{ total_price }} ₪</b></p>
+        <button type="submit" class="primary-btn">Pay &amp; Order</button>
+    </form>
+</section>
+{% endif %}
 
         <!-- Home Inventory Section -->
         <section id="inventory-section" class="card">

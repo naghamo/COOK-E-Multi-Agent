@@ -1,7 +1,12 @@
+clove
+dash
 grams
 kg
-ml
 l
+medium
+milliliter
+ml
+sprinkling
 tablespoons
 teaspoons
 units
