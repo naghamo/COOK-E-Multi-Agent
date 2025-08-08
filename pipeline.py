@@ -32,6 +32,7 @@ from agents._6_inventory_confirmation import run_confirmation_agent
 from agents._7_inventory_filter import run_inventory_filter_agent
 from agents._8_product_matcher import match_all_stores
 from agents._9_market_selector import choose_best_market_llm
+from agents._11_order_execution import finalize_order_generate_pdfs
 import warnings
 import asyncio
 
@@ -70,7 +71,7 @@ def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/to
             "matched_inventory": matched_inventory,
             "confirmation_json": confirmation_json,
         }
-def run_pipeline_to_order_execution(ingredents, tokens_filename="tokens/total_tokens.txt"):
+def run_pipeline_to_order_confirmation(ingredents, tokens_filename="tokens/total_tokens.txt"):
     '''runs the pipline from first inventory confirmation to order execution.'''
     global global_context
     with warnings.catch_warnings():
@@ -79,12 +80,26 @@ def run_pipeline_to_order_execution(ingredents, tokens_filename="tokens/total_to
         products =asyncio.run( match_all_stores(ingredents, tokens_filename=tokens_filename))
         # 7. Select best market based on products
         best_market = choose_best_market_llm(products,global_context, tokens_filename=tokens_filename)
-
+        print(best_market)
         if best_market.get("feasible") is False:
 
             return {"error": f"Error  {best_market.reason},{best_market.suggestions} "}
 
         return best_market
+def run_pipeline_to_order_execution(stores_dict, recipe_title, recipe_directions, delivery_choices,user_name, pdf_dir='static/receipts'):
+    """
+    Runs the final part of the pipeline to execute the order.
+    Returns the order confirmation pdfs
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        # 8. Finalize order and generate PDFs
+        pdf_filename = finalize_order_generate_pdfs(
+            stores_dict, recipe_title, recipe_directions, delivery_choices,pdf_dir=pdf_dir,user_name=user_name,
+        )
+
+        return pdf_filename
+
 
 
 # --- Usage Example ---
@@ -115,5 +130,5 @@ if __name__ == "__main__":
         # {'name': 'bread', 'to_buy_min': 1, 'to_buy_unit': 'loaf'},
         # {'name': 'milk', 'to_buy_min': 1, 'to_buy_unit': 'liter'},
     ]
-    print(run_pipeline_to_order_execution(ingredient, tokens_filename="tokens/total_tokens.txt"))
+    print(run_pipeline_to_order_confirmation(ingredient, tokens_filename="tokens/total_tokens.txt"))
     # print(result)

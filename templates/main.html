@@ -86,6 +86,11 @@
                 <span class="dot">.</span>
                 <span class="dot">.</span>
             </div>
+            {% if not payment_done %}
+            <button type="button" class="secondary-btn" onclick="window.location.href='{{ url_for('main') }}'">Cancel</button>
+{% endif %}
+
+
 
             <!-- Result/Confirmation Section -->
             {% if conf_type == 'conf' %}
@@ -135,64 +140,85 @@
 </section>
 {% endif %}
 
-
-          {% if payment_conf %}
+{% if payment_conf %}
 <section id="result-section" class="card highlight">
     <h2>Review &amp; Pay</h2>
-    {% for store, info in stores.items() %}
-    <div class="store-receipt">
-        <h3>Supermarket: {{ store|capitalize }}</h3>
-        <div>
-            <b>Delivery:</b>
-            {{ info.delivery_time if info.delivery_time else "" }} (Fee: ₪{{ info.delivery_fee }})
+    <form method="POST" action="/confirm_order" id="orderForm">
+        {% for store, info in stores.items() %}
+        <div class="store-receipt" data-store="{{ store }}">
+            <h3>Supermarket: {{ store|capitalize }}</h3>
+            <div>
+                <label>
+                    <input type="checkbox" class="delivery-checkbox" name="delivery_{{ store }}" value="yes" checked data-store="{{ store }}" data-delivery-fee="{{ info.delivery_fee }}">
+                    Request Delivery from this store (Fee: ₪<span class="delivery-fee" id="delivery_fee_{{ store }}">{{ info.delivery_fee }}</span>)
+                </label>
+                <br>
+                <b>Delivery:</b> {{ info.delivery_time if info.delivery_time else "" }}
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Code</th>
+                            <th>Product</th>
+                            <th>Qty</th>
+                            <th>Unit Price</th>
+                            <th>Promo</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in info['items'] %}
+                        <tr>
+                            <td>
+                                <input type="checkbox" class="product-checkbox" name="buy_{{ store }}_{{ loop.index0 }}" checked data-store="{{ store }}" data-product-index="{{ loop.index0 }}" data-total="{{ item.total_price }}">
+                            </td>
+                            <td>{{ item.code|stripdotzero }}</td>
+
+
+                            <td>{{ item.product }}</td>
+                            <td>{{ item.qty }}</td>
+                            <td>{{ item.unit_price }} ₪</td>
+                            <td>{{ item.promo }}</td>
+                            <td class="product-total" id="product_total_{{ store }}_{{ loop.index0 }}">{{ item.total_price }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p><b>Subtotal: ₪<span class="store-subtotal" id="subtotal_{{ store }}">{{ info.grand_total }}</span></b></p>
         </div>
-        {% if info.notes %}
-        <div class="store-notes"><i>Note: {{ info.notes }}</i></div>
-        {% endif %}
-        <div class="table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th></th>
-                        <th>Product</th>
-                        <th>Qty</th>
-                        <th>Unit Price</th>
-                        <th>Promo</th>
-                        <th>Total</th>
-                        <th>Suggestion</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in info.items %}
-                    <tr>
-                        <td>
-                            <input type="checkbox" name="buy_{{ store }}_{{ loop.index0 }}" checked>
-                        </td>
-                        <td>{{ item.product }}</td>
-                        <td>{{ item.qty }}</td>
-                        <td>{{ item.unit_price }} ₪</td>
-                        <td>{{ item.promo }}</td>
-                        <td>{{ item.total_price }} ₪</td>
-                        <td>
-                            {% if item.suggestion %}
-                              <span class="suggestion">{{ item.suggestion }}</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <p><b>Subtotal: ₪{{ info.grand_total }}</b></p>
-    </div>
-    <hr>
-    {% endfor %}
-    <p class="total"><b>Grand Total: ₪{{ total_payment }}</b></p>
-    <form method="POST" action="/confirm_order">
+        <hr>
+        {% endfor %}
+        <p class="total"><b>Grand Total: ₪<span id="grand_total">{{ total_payment }}</span></b></p>
         <button type="submit" class="primary-btn">Pay &amp; Order</button>
     </form>
 </section>
 {% endif %}
+{% if payment_done %}
+  <section class="card">
+    <h2>Order Complete! 🧾 Download Your Receipts</h2>
+    {% if pdf_links %}
+      <ul>
+        {% for store, link in pdf_links.items() %}
+          <li>
+            <a href="{{ link }}" target="_blank">Download {{ store|capitalize }} Receipt PDF</a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <h3>Recipe Directions:</h3>
+    <ol>
+      {% for step in recipe_directions %}
+        <li>{{ step }}</li>
+      {% endfor %}
+    </ol>
+  </section>
+{% endif %}
+
+
+
 {% endif %}
 {% if not request%}
         <!-- Home Inventory Section -->
@@ -311,7 +337,45 @@
 <script>
   const userText = `{{ user_input | e }}`;
   let i = 0;
+document.addEventListener('DOMContentLoaded', function () {
+    function updateTotals() {
+        let grandTotal = 0.0;
 
+        document.querySelectorAll('.store-receipt').forEach(function(storeDiv) {
+            const store = storeDiv.getAttribute('data-store');
+            let storeTotal = 0.0;
+
+            // Sum checked products
+            storeDiv.querySelectorAll('.product-checkbox').forEach(function(cb) {
+                if (cb.checked) {
+                    storeTotal += parseFloat(cb.getAttribute('data-total')) || 0;
+                }
+            });
+
+            // Add delivery fee if checked
+            const deliveryCb = storeDiv.querySelector('.delivery-checkbox');
+            let deliveryFee = 0;
+            if (deliveryCb && deliveryCb.checked) {
+                deliveryFee = parseFloat(deliveryCb.getAttribute('data-delivery-fee')) || 0;
+                storeTotal += deliveryFee;
+            }
+
+            // Update store subtotal
+            const subtotalSpan = document.getElementById(`subtotal_${store}`);
+            if (subtotalSpan) subtotalSpan.textContent = storeTotal.toFixed(2);
+
+            grandTotal += storeTotal;
+        });
+
+        // Update grand total
+        document.getElementById('grand_total').textContent = grandTotal.toFixed(2);
+    }
+
+    // Listen for product or delivery checkbox changes
+    document.querySelectorAll('.product-checkbox, .delivery-checkbox').forEach(function(cb) {
+        cb.addEventListener('change', updateTotals);
+    });
+});
   function toggleUnitInput(select) {
     var input = select.parentElement.querySelector('.unit-input');
     if (select.value === "other") {

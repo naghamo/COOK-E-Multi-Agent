@@ -3,7 +3,8 @@ import os
 
 import pandas as pd
 from flask import Flask, render_template, request, redirect, session, url_for
-from pipeline import run_pipeline_to_inventory_confirmation, run_pipeline_to_order_execution
+from pipeline import run_pipeline_to_inventory_confirmation, run_pipeline_to_order_confirmation, \
+    run_pipeline_to_order_execution
 from datetime import datetime
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
@@ -157,7 +158,17 @@ def confirm_ingredient():
         })
         i += 1
     print(confirmed_ingredients)
-
+    confirmed_ingredients = [
+        {'name': 'olive oil', 'to_buy_min': 50, 'to_buy_unit': 'ml'},
+        {'name': 'tomatoes', 'to_buy_min': 300, 'to_buy_unit': 'gr'},
+        {'name': 'cheddar', 'to_buy_min': 250, 'to_buy_unit': 'gr'},
+        {'name': 'salt', 'to_buy_min': 1, 'to_buy_unit': 'teaspoons'},
+        {'name': 'garlic', 'to_buy_min': 3, 'to_buy_unit': 'cloves'},
+        {'name': 'onion', 'to_buy_min': 5, 'to_buy_unit': 'units'},
+        {"name": "tomato sauce", "to_buy_min": 500, "to_buy_unit": "milliliter"}
+        # {'name': 'bread', 'to_buy_min': 1, 'to_buy_unit': 'loaf'},
+        # {'name': 'milk', 'to_buy_min': 1, 'to_buy_unit': 'liter'},
+    ]
     # 2. Check if everything is at home
     nothing_to_buy = all(item["to_buy_min"] == 0 for item in confirmed_ingredients)
     if nothing_to_buy:
@@ -195,8 +206,7 @@ def confirm_ingredient():
         )
 
     # 3. Otherwise, proceed with purchase pipeline
-    result = run_pipeline_to_order_execution(confirmed_ingredients,
-                                             tokens_filename="tokens/total_tokens.txt")
+    result = run_pipeline_to_order_confirmation(confirmed_ingredients, tokens_filename="tokens/total_tokens.txt")
 
     if 'error' in result or result.get("not_feasible"):
         # Handle case where no feasible order/cart could be made
@@ -211,21 +221,21 @@ def confirm_ingredient():
             request=True,
         )
 
-    # If "cart" is empty, show a special message or the recipe summary
-    if not result.get("cart"):
-        return render_template(
-            'main.html',
-            user=session['user'],
-            inventory=inventory,
-            old_requests=old_requests,
-            units=units_list,
-            user_input=user_text,
-            recipe_title=result.get('recipe_title', ''),
-            recipe_directions=result.get('directions', []),
-            recipe_ingredients=result.get('ingredients', []),
-            nothing_to_buy=True,  # special flag for template
-            request=True,
-        )
+    # # If "cart" is empty, show a special message or the recipe summary
+    # if not result.get("cart"):
+    #     return render_template(
+    #         'main.html',
+    #         user=session['user'],
+    #         inventory=inventory,
+    #         old_requests=old_requests,
+    #         units=units_list,
+    #         user_input=user_text,
+    #         recipe_title=result.get('recipe_title', ''),
+    #         recipe_directions=result.get('directions', []),
+    #         recipe_ingredients=result.get('ingredients', []),
+    #         nothing_to_buy=True,  # special flag for template
+    #         request=True,
+    #     )
 
     # Normal payment confirmation view:
     return render_template(
@@ -240,7 +250,65 @@ def confirm_ingredient():
         user_input=user_text,
         request=True,
     )
+@app.route('/confirm_order', methods=['POST'])
+def confirm_order():
+    if 'user' not in session:
+        return redirect(url_for('login'))
 
+    # Load whatever you need from session or elsewhere
+    user = session['user']
+    inventory = load_inventory()
+    units_list = load_units()
+    old_requests = load_old_requests()
+
+    # -- Assume you saved these as session variables or similar in previous steps
+    recipe_title = session.get('last_recipe_title', '')
+    recipe_directions = session.get('last_recipe_directions', [])
+    stores = session.get('last_stores', {})
+
+    # 1. Get delivery checkboxes for each store
+    delivery_choices = {store: (request.form.get(f"delivery_{store}") == "yes") for store in stores.keys()}
+
+    # 2. Run pipeline to generate PDFs for each supermarket (and optionally use LLM for style)
+
+    pdf_links = run_pipeline_to_order_execution(
+        stores_dict=stores,
+        recipe_title=recipe_title,
+        recipe_directions=recipe_directions,
+        delivery_choices=delivery_choices,
+        user_name=user,
+    )
+
+    # 3. Save this purchase in old requests (with PDF links)
+    request_data = {
+        "user": user,
+        "recipe_title": recipe_title,
+        "directions": json.dumps(recipe_directions, ensure_ascii=False),
+        "stores": json.dumps(stores, ensure_ascii=False),
+        "pdf_links": json.dumps(pdf_links, ensure_ascii=False),
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "purchase_result": "Order placed",
+    }
+    save_old_request(request_data)
+
+    return render_template(
+        'main.html',
+        user=user,
+        inventory=inventory,
+        old_requests=load_old_requests(),
+        recipe_title=recipe_title,
+        recipe_directions=recipe_directions,
+        pdf_links=pdf_links,     # Dict {store: url}
+        payment_done=True,
+        request=True,
+        units=units_list,
+    )
+
+
+@app.template_filter('stripdotzero')
+def stripdotzero(s):
+    s = str(s)
+    return s[:-2] if s.endswith('.0') else s
 
 @app.route('/')
 def index():

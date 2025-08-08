@@ -38,3 +38,4 @@ rapidfuzz
 typing-extensions
 
 eval-type-backport
+fpdf2~=2.7.8
