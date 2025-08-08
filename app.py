@@ -130,6 +130,10 @@ def submit_request():
 def confirm_ingredient():
     if 'user' not in session:
         return redirect(url_for('login'))
+    print("---- request.form received ----")
+    for k, v in request.form.items():
+        print(f"{k}: {v}")
+    print("--------------------------------")
 
     inventory = load_inventory()
     units_list = load_units()
@@ -152,43 +156,43 @@ def confirm_ingredient():
             "to_buy_unit": to_buy_unit
         })
         i += 1
-        print(confirmed_ingredients)
+    print(confirmed_ingredients)
 
     # 2. Check if everything is at home
-    # nothing_to_buy = all(item["to_buy_min"] == 0 for item in confirmed_ingredients)
-    # if nothing_to_buy:
-    #     recipe_title = recipe.get('title', '')
-    #     recipe_servings = recipe.get('servings', '')
-    #     recipe_ingredients = recipe.get('ingredients', [])  # as list of strings
-    #     recipe_directions = recipe.get('directions', [])    # as list of strings
-    #
-    #     # Save in old requests db
-    #     request_data = {
-    #         "user": session['user'],
-    #         "user_text": user_text,
-    #         "recipe_title": recipe_title,
-    #         "recipe_servings": recipe_servings,
-    #         "recipe_ingredients": json.dumps(recipe_ingredients, ensure_ascii=False),
-    #         "directions": json.dumps(recipe_directions, ensure_ascii=False),
-    #         "purchase_result": "Nothing to buy - all ingredients at home",
-    #         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    #     }
-    #     save_old_request(request_data)
-    #
-    #     return render_template(
-    #         'main.html',
-    #         user=session['user'],
-    #         inventory=inventory,
-    #         old_requests=load_old_requests(),
-    #         units=units_list,
-    #         user_input=user_text,
-    #         recipe_title=recipe_title,
-    #         recipe_servings=recipe_servings,
-    #         recipe_ingredients=recipe_ingredients,
-    #         recipe_directions=recipe_directions,
-    #         request=False,
-    #         message="All ingredients are available at home! No need to order anything 😊"
-    #     )
+    nothing_to_buy = all(item["to_buy_min"] == 0 for item in confirmed_ingredients)
+    if nothing_to_buy:
+        recipe_title = recipe.get('title', '')
+        recipe_servings = recipe.get('servings', '')
+        recipe_ingredients = recipe.get('ingredients', [])  # as list of strings
+        recipe_directions = recipe.get('directions', [])    # as list of strings
+
+        # Save in old requests db
+        request_data = {
+            "user": session['user'],
+            "user_text": user_text,
+            "recipe_title": recipe_title,
+            "recipe_servings": recipe_servings,
+            "recipe_ingredients": json.dumps(recipe_ingredients, ensure_ascii=False),
+            "directions": json.dumps(recipe_directions, ensure_ascii=False),
+            "purchase_result": "Nothing to buy - all ingredients at home",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        save_old_request(request_data)
+
+        return render_template(
+            'main.html',
+            user=session['user'],
+            inventory=inventory,
+            old_requests=load_old_requests(),
+            units=units_list,
+            user_input=user_text,
+            recipe_title=recipe_title,
+            recipe_servings=recipe_servings,
+            recipe_ingredients=recipe_ingredients,
+            recipe_directions=recipe_directions,
+            request=False,
+            message="All ingredients are available at home! No need to order anything 😊"
+        )
 
     # 3. Otherwise, proceed with purchase pipeline
     result = run_pipeline_to_order_execution(confirmed_ingredients,

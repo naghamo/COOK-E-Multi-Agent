@@ -106,22 +106,26 @@
                 <tbody>
                     {% for ing in confirmation_list %}
                     <tr>
-                        <td>{{ ing.name }}</td>
-                        <td>{{ ing.requested_quantity }}</td>
-                        <td>
-                            <input type="number" min="0" step="any" name="to_buy_min_{{ loop.index0 }}" value="{{ ing.to_buy_min }}" style="width:60px;">
-                        </td>
-                        <td>
-                            <select name="to_buy_unit_{{ loop.index0 }}">
-                                {% for unit in units %}
-                                    <option value="{{ unit }}" {% if unit == ing.to_buy_unit %}selected{% endif %}>{{ unit }}</option>
-                                {% endfor %}
-                            </select>
-                        </td>
-                        <td>
-                            <small>{{ ing.explanation }}</small>
-                        </td>
-                    </tr>
+    <td>
+        {{ ing.name }}
+        <input type="hidden" name="name_{{ loop.index0 }}" value="{{ ing.name }}">
+    </td>
+    <td>{{ ing.requested_quantity }}</td>
+    <td>
+        <input type="number" min="0" step="any" name="to_buy_min_{{ loop.index0 }}" value="{{ ing.to_buy_min }}" style="width:60px;">
+    </td>
+    <td>
+        <select name="to_buy_unit_{{ loop.index0 }}">
+            {% for unit in units %}
+                <option value="{{ unit }}" {% if unit == ing.to_buy_unit %}selected{% endif %}>{{ unit }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>
+        <small>{{ ing.explanation }}</small>
+    </td>
+</tr>
+
                     {% endfor %}
                 </tbody>
             </table>
