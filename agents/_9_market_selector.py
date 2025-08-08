@@ -499,7 +499,7 @@ INFEASIBLE_BASKET_FN = {
         "- User requirements create an impossible situation\n\n"
         "Provide:\n"
         "- reason: Clear explanation of why request is infeasible\n"
-        "- suggestions: List of actionable alternatives (e.g., 'Remove garlic from recipe', "
+        "- suggestions: List of actionable alternatives, if possible. Notice, you cannot remove items listed."
         "'Increase budget to at least 200', 'Allow multi-store shopping')\n"
     ),
     "parameters": infeasible_schema
@@ -603,12 +603,13 @@ def choose_best_market_llm(
 
         "DECISION FRAMEWORK:\n"
         "1. **Single Store Request Analysis**:\n"
-        "   - If user wants single store, first check if any store has ALL ingredients\n"
+        "   - If user specifically wants single store, first check if any store has ALL ingredients\n"
         "   - Calculate the TRUE cost difference between single-store and multi-store options\n"
-        "   - If single-store total is >30% more expensive, suggest multi-store in notes but still follow preference\n"
+        "   - If single-store total is >20% more expensive, suggest multi-store but still follow preference\n"
         "   - If no store has all items, find the store with MOST coverage and explain missing items\n\n"
         
         "2. **Multi-Store Optimization Rules**:\n"
+        "   - If user did NOT specify buying at a single store only, try out multiple stores.\n"
         "   - NEVER use a store for just 1-2 items unless absolutely necessary\n"
         "   - Each store order MUST meet minimum order requirement unless it is absolutely worth the delivery fee\n"
         "   - Consider 2-store maximum unless user explicitly allows more\n"
