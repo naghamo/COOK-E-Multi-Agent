@@ -1,12 +1,17 @@
 clove
 dash
+gram
 grams
+handfuls
 kg
 l
 medium
 milliliter
 ml
+piece
+slice
 sprinkling
 tablespoons
 teaspoons
+unit
 units

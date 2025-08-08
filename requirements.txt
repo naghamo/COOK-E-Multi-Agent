@@ -37,3 +37,4 @@ rapidfuzz
 #
 typing-extensions
 
+eval-type-backport

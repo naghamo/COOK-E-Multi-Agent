@@ -38,8 +38,13 @@ llm = AzureChatOpenAI(
 )
 
 # ---------- shared catalog (loaded once) ----------
-PRODUCTS_DF     = pd.read_csv("../data/unit_productsDB.csv")
-SUPERMARKETS_DF = pd.read_csv("../data/supermarketsDB.csv")
+
+# Load product and supermarket databases
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+
+PRODUCTS_DF = pd.read_csv(os.path.join(DATA_DIR, "unit_productsDB.csv"))
+SUPERMARKETS_DF = pd.read_csv(os.path.join(DATA_DIR, "supermarketsDB.csv"))
 
 # ---------------------------------------------------------------
 # 1. Helpers (for supermarket api)
@@ -312,6 +317,7 @@ SUPERMARKET_IDS = ['tiv_taam',
               'osher_ad',
               'mega']
 async def match_all_stores(ingredients: list[dict],tokens_filename: str = "../tokens/total_tokens_Seva.txt") -> dict:
+
     loop = asyncio.get_running_loop()
     with cf.ThreadPoolExecutor() as pool:
         tasks = [

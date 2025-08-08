@@ -109,7 +109,7 @@
                         <td>{{ ing.name }}</td>
                         <td>{{ ing.requested_quantity }}</td>
                         <td>
-                            <input type="number" min="0" name="to_buy_min_{{ loop.index0 }}" value="{{ ing.to_buy_min }}" style="width:60px;">
+                            <input type="number" min="0" step="any" name="to_buy_min_{{ loop.index0 }}" value="{{ ing.to_buy_min }}" style="width:60px;">
                         </td>
                         <td>
                             <select name="to_buy_unit_{{ loop.index0 }}">
@@ -132,53 +132,65 @@
 {% endif %}
 
 
-           {% if payment_conf %}
+          {% if payment_conf %}
 <section id="result-section" class="card highlight">
     <h2>Review &amp; Pay</h2>
-    <h3>Supermarket: {{ supermarket }}</h3>
-    <div>
-        <b>Delivery:</b> {{ delivery.time }} (Fee: ₪{{ delivery.fee }})
-    </div>
-    <form method="POST" action="/confirm_order">
+    {% for store, info in stores.items() %}
+    <div class="store-receipt">
+        <h3>Supermarket: {{ store|capitalize }}</h3>
+        <div>
+            <b>Delivery:</b>
+            {{ info.delivery_time if info.delivery_time else "" }} (Fee: ₪{{ info.delivery_fee }})
+        </div>
+        {% if info.notes %}
+        <div class="store-notes"><i>Note: {{ info.notes }}</i></div>
+        {% endif %}
         <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
                         <th></th>
                         <th>Product</th>
-                        <th>Brand</th>
-                        <th>Code</th>
                         <th>Qty</th>
                         <th>Unit Price</th>
                         <th>Promo</th>
                         <th>Total</th>
+                        <th>Suggestion</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for item in cart %}
+                    {% for item in info.items %}
                     <tr>
                         <td>
-                            <!-- If you want users to select which to buy: -->
-                            <input type="checkbox" name="buy_{{ loop.index0 }}" checked>
+                            <input type="checkbox" name="buy_{{ store }}_{{ loop.index0 }}" checked>
                         </td>
                         <td>{{ item.product }}</td>
-                        <td>{{ item.brand }}</td>
-                        <td>{{ item.code }}</td>
                         <td>{{ item.qty }}</td>
                         <td>{{ item.unit_price }} ₪</td>
                         <td>{{ item.promo }}</td>
                         <td>{{ item.total_price }} ₪</td>
+                        <td>
+                            {% if item.suggestion %}
+                              <span class="suggestion">{{ item.suggestion }}</span>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-        <p class="total"><b>Total: {{ total_price }} ₪</b></p>
+        <p><b>Subtotal: ₪{{ info.grand_total }}</b></p>
+    </div>
+    <hr>
+    {% endfor %}
+    <p class="total"><b>Grand Total: ₪{{ total_payment }}</b></p>
+    <form method="POST" action="/confirm_order">
         <button type="submit" class="primary-btn">Pay &amp; Order</button>
     </form>
 </section>
 {% endif %}
-
+{% endif %}
+{% if not request%}
         <!-- Home Inventory Section -->
         <section id="inventory-section" class="card">
             <h2>Home Inventory</h2>
@@ -257,6 +269,7 @@
             </form>
         </section>
 
+
         <!-- Old Requests Section -->
         <section id="old-requests-section" class="card">
     <h2>Old Requests</h2>
@@ -288,7 +301,7 @@
         {% endfor %}
     </ul>
 </section>
-
+{% endif %}
 
     </main>
 <script>

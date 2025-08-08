@@ -24,7 +24,7 @@ by match_all_stores(), choose the optimal basket and return canonical JSON.
 from __future__ import annotations
 
 import json, math, os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 from collections import defaultdict
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -504,6 +504,39 @@ INFEASIBLE_BASKET_FN = {
     ),
     "parameters": infeasible_schema
 }
+#Arranging Store Data for Template
+def prepare_stores_for_rendering(selection, store_summary):
+    # Prepare store->list of items mapping
+    stores = {}
+    for store_id, summary in store_summary.items():
+        stores[store_id] = {
+            "delivery_fee": summary.delivery_fee,
+            "delivery_time": getattr(summary, 'delivery_time', ''),  # optional, not always present
+            "grand_total": summary.grand_total,
+            "notes": summary.notes,
+            "items": []
+        }
+
+    # Distribute each product into its corresponding store section
+    for ing_name, prod in selection.items():
+        store_id = prod.supermarket_id
+        item = {
+            "product": prod.name,
+            "brand": "",  # add if available in your FullProduct
+            "code": prod.item_code,
+            "qty": prod.packs_needed,
+            "unit_price": prod.price,
+            "promo": prod.promo,
+            "total_price": round(prod.price * prod.packs_needed, 2),
+            "suggestion": prod.selection_notes,
+            "checked": True
+        }
+        stores[store_id]["items"].append(item)
+
+    # Compute grand total across all stores
+    total_payment = sum(s["grand_total"] for s in stores.values())
+
+    return {"stores": stores, "total_payment": round(total_payment, 2)}
 
 # ===============================================================================
 # MAIN PROCESSING FUNCTION - ORCHESTRATES THE ENTIRE PIPELINE
@@ -513,7 +546,7 @@ def choose_best_market_llm(
         match_output: Dict,
         user_prefs: Dict,
         tokens_filename: str = "../tokens/total_tokens_Seva.txt"
-) -> BasketChoice | InfeasibleBasket:
+) -> InfeasibleBasket | dict[str, dict[Any, Any] | int] | BasketChoice:
     """
     Main function: Convert matched ingredients to optimal shopping basket using LLM.
 
@@ -769,6 +802,10 @@ def choose_best_market_llm(
         if summary.items_total > 0
     }
 
+    if final_basket.feasible:
+        rendered = prepare_stores_for_rendering(final_basket.selection, final_basket.store_summary)
+        rendered["feasible"] = True
+        return rendered
     return final_basket
 
 
