@@ -90,20 +90,21 @@ def parse_ingredients_llm(lines: List[str],tokens_filename="../tokens/total_toke
         SystemMessage(content=(
             "You are **IngredientParser v1**, a specialist in parsing recipe lines. "
             "Your only output must be a single function call to `ingredient_list`, "
-            "with its `ingredients` key set to a JSON array of objects—one object per input line.  \n\n"
+            "with its `ingredients` key set to a JSON array of objects—one object per input line."
+            "Make sure you provide quantity and units as listed in the ingredient.   \n\n"
 
             "**Field requirements per ingredient object:**  \n"
             "• `name` (string): the ingredient name, lower‑cased, no quantity or unit.  \n"
-            "• `quantity` (number|null): a decimal number; parse fractions (e.g. “½” or “1/2”) to floats.  \n"
-            "• `unit` (string|null): canonical units such as: teaspoon, tablespoon, cup, ounce, pound, gram, kilogram, milliliter, liter, pinch, piece, clove, slice, stick, bunch—or null if none. (the way provided in the recipe)  \n"
+            "• `quantity` (number): a decimal number; parse fractions (e.g. “½” or “1/2”) to floats. If missing, put 1. \n"
+            "• `unit` (string): canonical units such as: teaspoon, tablespoon, cup, ounce, pound, gram, kilogram, milliliter, liter, pinch, piece, clove, slice, stick, bunch, units, and so on... (the way provided in the recipe). If missing, put `unit` instead.  \n"
             "• `note` (string|null): any additions, or trailing text (parentheses, descriptors like “minced”, “optional”), or null if none.  \n\n"
 
             "**Parsing rules:**  \n"
             "1. **Strict JSON**: do not emit any text outside the function call.  \n"
             "2. **Canonical units only**: if the line says “tbs.” or “Tbsp”, map to “tablespoon”; “g” or “grams” → “gram”; “oz” → “ounce”; etc.  \n"
             "3. **Fractions**: convert “¾” or “3/4” to 0.75.  \n"
-            "4. **Missing fields**: use `null` for quantity or unit if the line has none.  \n\n"
-
+            "4. **Missing fields**: if the quantity is missing, put 1. if unit is missing, put unit.  \n\n"
+            
             "Input is numbered like “1. 2 Tbsp sugar”.  "
             "Produce exactly one call:\n"
             "`ingredient_list(ingredients=[{...}, {...}, …])`"
@@ -131,9 +132,20 @@ def parse_ingredients_llm(lines: List[str],tokens_filename="../tokens/total_toke
 # 4. Quantity Scaling and Parsing Helpers
 # ──────────────────────────────────────────────────────────────
 
-def scale_qty(qty, ratio: float) -> float | None:
-    """Scale quantity by a given ratio (e.g., servings factor)."""
-    return None if qty is None else qty * ratio
+def scale_qty(qty, unit: str, ratio: float) -> float | None:
+    """
+    Scale quantity by a given ratio, but skip scaling if unit is 'unit'
+    (for ingredients without specific measurements like 'soy sauce').
+    """
+    if qty is None:
+        return None
+
+    # Skip scaling for 'unit' measurements - these are typically
+    # ingredients added "to taste" or without specific quantities
+    if unit == "unit":
+        return qty
+
+    return qty * ratio
 
 
 def parse_quantity(q) -> float | None:
@@ -203,8 +215,17 @@ def convert_both(qty, unit: str) -> Dict[str, Any]:
     Returns keys: metric_qty, metric_unit, us_qty, us_unit.
     """
     if qty is None or unit is None:
-        return dict(metric_qty=None, metric_unit=None,
-                    us_qty=None,     us_unit=None)
+        return dict(metric_qty=1, metric_unit='unit',
+                    us_qty=1,     us_unit='unit')
+
+    # For 'unit' measurements, return as-is without conversion
+    if unit == "unit":
+        return dict(
+            metric_qty=qty,
+            metric_unit=unit,
+            us_qty=qty,
+            us_unit=unit
+        )
 
     try:
         q = qty * ureg(unit)
@@ -260,7 +281,7 @@ def build_scaled_ingredient_list(user_req: Dict[str, Any], recipe: Dict[str, Any
     for ing in parsed:
         # Step 2: Parse and scale quantity
         original_qty = parse_quantity(ing["quantity"])
-        qty_scaled   = scale_qty(original_qty, ratio)
+        qty_scaled   = scale_qty(original_qty, ing["unit"], ratio)
 
         # Step 3: Convert to metric & US
         dual = convert_both(qty_scaled, ing["unit"])
@@ -312,7 +333,7 @@ if __name__ == "__main__":
             "3 tablespoons soy sauce",
             "1 1/2 teaspoons sugar",
             "2 garlic cloves, minced",
-            "1 scallion, thinly sliced",
+            "Scallions, thinly sliced",
             "1 tablespoon fresh ginger, chopped",
             "Chinese chili oil (optional)",
             "Sesame seeds (optional)"

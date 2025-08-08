@@ -72,6 +72,8 @@ class FullProduct(BaseModel):
     unit: str  # Unit of measurement
     price: float  # Price in local currency
     promo: str | None = None  # Promotion description (if any)
+    discount: str | None = None  # NEW: Parsed discount (e.g., "5", "20%", None)
+    effective_price: float  # NEW: Price after discount applied
     packs_needed: int  # Number of packs to buy (set by LLM)
     selection_notes: str = ""  # LLM's reasoning for this selection
 
@@ -107,6 +109,7 @@ class TempBasketChoice(BaseModel):
     """
     selection: Dict[str, IngredientSelection] = Field(default_factory=dict)
     store_summary: Dict[str, StoreSummary] = Field(default_factory=dict)
+    suggestions: List[str] = Field(default_factory=list)
 
 class InfeasibleBasket(BaseModel):
     """
@@ -119,16 +122,50 @@ class InfeasibleBasket(BaseModel):
 class BasketChoice(BaseModel):
     """
     Final output schema with complete product objects.
-    This is what gets returned to the user.
+    This is what gets returned toB the user.
     """
     feasible: bool = True
     selection: Dict[str, FullProduct] = Field(default_factory=dict)
     store_summary: Dict[str, StoreSummary] = Field(default_factory=dict)
+    suggestions: List[str] = Field(default_factory=list)
 
 
 # ===============================================================================
 # DATA TRANSFORMATION FUNCTIONS - CORE PIPELINE LOGIC
 # ===============================================================================
+
+def calculate_effective_price(original_price: float, discount: str | None) -> tuple[float, str]:
+    """
+    Calculate the effective price after applying discount.
+
+    Args:
+        original_price: Original product price
+        discount: Discount string like "5", "20%", or None
+
+    Returns:
+        Tuple of (effective_price, discount_description)
+    """
+    if not discount:
+        return original_price, ""
+
+    try:
+        if discount.endswith('%'):
+            # Percentage discount
+            percentage = float(discount.rstrip('%'))
+            discount_amount = original_price * (percentage / 100)
+            effective_price = original_price - discount_amount
+            description = f"{percentage}% off"
+        else:
+            # Fixed amount discount
+            discount_amount = float(discount)
+            effective_price = max(0, original_price - discount_amount)  # Don't go below 0
+            description = f"₪{discount_amount} off"
+
+        return round(effective_price, 2), description
+    except (ValueError, TypeError):
+        # If parsing fails, return original price
+        print(f"Warning: Could not parse discount '{discount}', using original price")
+        return original_price, ""
 
 def _calculate_store_analysis(
         cid_lookup: Dict[str, Dict[str, FullProduct]],
@@ -148,12 +185,13 @@ def _calculate_store_analysis(
             store_ingredient_coverage[store_id].add(ing)
             all_available_ingredients.add(ing)
 
-            # Track cheapest price per ingredient per store
+            # Use EFFECTIVE PRICE (after discount) for cost calculations
             current_cheapest = store_costs[store_id].get(ing, {}).get('price', float('inf'))
-            if product.price < current_cheapest:
+            if product.effective_price < current_cheapest:  # CHANGED: use effective_price
                 store_costs[store_id][ing] = {
-                    'price': product.price,
-                    'promo': product.promo,
+                    'price': product.effective_price,  # CHANGED: use effective_price
+                    'discount': product.discount,
+                    'original_price': product.price,  # Keep original for reference
                     'cid': cid
                 }
 
@@ -166,7 +204,7 @@ def _calculate_store_analysis(
         analysis_lines.append("\n#### CRITICAL INFEASIBILITY WARNING:")
         analysis_lines.append(
             f"The following ingredients have NO products in ANY store: **{', '.join(missing_ingredients)}**")
-        analysis_lines.append("This request may be INFEASIBLE without removing these ingredients.")
+        analysis_lines.append("This request is INFEASIBLE")
 
     # Calculate minimum possible cost
     if user_budget:
@@ -177,7 +215,7 @@ def _calculate_store_analysis(
             cheapest_price = float('inf')
             for store_costs_dict in store_costs.values():
                 if ing in store_costs_dict:
-                    cheapest_price = min(cheapest_price, store_costs_dict[ing]['price'])
+                    cheapest_price = min(cheapest_price, store_costs_dict[ing]['price'])  # Already effective price
             if cheapest_price != float('inf'):
                 min_possible_cost += cheapest_price
 
@@ -200,7 +238,7 @@ def _calculate_store_analysis(
                 f"({min_possible_cost:.1f} items + {cheapest_delivery} delivery)"
             )
             analysis_lines.append(
-                f"This EXCEEDS budget of ₪{user_budget} by {budget_excess:.1f} ({excess_percentage:.0f}%)"
+                f"This EXCEEDS budget of {user_budget} by {budget_excess:.1f} ({excess_percentage:.0f}%)"
             )
 
             if excess_percentage > 200:
@@ -365,9 +403,8 @@ def _compact_table(
     Example CID format: "0-yohananof-1" = ingredient_index-store_id-product_rank
     """
 
-    # Lookup table: ingredient_name -> cid -> FullProduct
     lookup: Dict[str, Dict[str, FullProduct]] = defaultdict(dict)
-    lines = []  # Text lines for the compact table
+    lines = []
 
     # Get all unique ingredients across all stores
     all_ingredients = set()
@@ -380,29 +417,51 @@ def _compact_table(
         found_products = False
 
         # Check each store for this ingredient
-        for store_id, bundle in result.items():
+        for store_id, bundle in result.items():  # FIXED: Use result.items(), not duplicate loop
             picks = bundle["desired_ingredients"].get(ing, [])[:max_per_store]
             if not picks:
-                continue  # Store has no products for this ingredient
+                continue
 
             found_products = True
 
-            # Create compact entries for each product
             for rank, prod in enumerate(picks):
-                # Generate unique CID: ingredient_index-store_id-rank
                 cid = f"{idx}-{store_id}-{rank}"
 
-                # Store full product in lookup table
-                lookup[ing][cid] = FullProduct(**prod)
+                # Calculate effective price with discount
+                original_price = prod["price"]
+                discount = prod.get("discount")
+                effective_price, discount_desc = calculate_effective_price(original_price, discount)
 
-                # Create compact text line for LLM
-                promo = prod["promo"] or "-"
-                lines.append(
-                    f"{cid} | price={prod['price']:.2f} | "
-                    f"{prod['size']} {prod['unit']} | promo={promo}"
+                # Create FullProduct
+                full_product = FullProduct(
+                    supermarket_id=prod["supermarket_id"],
+                    item_code=prod["item_code"],
+                    name=prod["name"],
+                    size=prod["size"],
+                    unit=prod["unit"],
+                    price=original_price,
+                    discount=discount,
+                    effective_price=effective_price,  # Always set this
+                    promo=prod.get("promo"),
+                    packs_needed=1
                 )
 
-        # Handle ingredients with no available products
+                lookup[ing][cid] = full_product
+                price_display = f"{effective_price:.2f}"
+
+                # # Create compact text line with discount info
+                # if discount and discount_desc:
+                #     price_display = f"was {original_price:.2f} → NOW {effective_price:.2f} ({discount_desc})"
+                # else:
+                #     price_display = f"{effective_price:.2f}"
+
+                promo_display = prod.get("promo", "-") or "-"
+
+                lines.append(
+                    f"{cid} | {price_display} | "
+                    f"{prod['size']} {prod['unit']} | promo={promo_display}"
+                )
+
         if not found_products:
             lines.append(" No suitable products found in any store")
 
@@ -499,13 +558,13 @@ INFEASIBLE_BASKET_FN = {
         "- User requirements create an impossible situation\n\n"
         "Provide:\n"
         "- reason: Clear explanation of why request is infeasible\n"
-        "- suggestions: List of actionable alternatives (e.g., 'Remove garlic from recipe', "
+        "- suggestions: List of actionable alternatives, if possible. Notice, you CANNOT suggest remove items listed."
         "'Increase budget to at least 200', 'Allow multi-store shopping')\n"
     ),
     "parameters": infeasible_schema
 }
 #Arranging Store Data for Template
-def prepare_stores_for_rendering(selection, store_summary):
+def prepare_stores_for_rendering(selection, store_summary, suggestions=None):
     # Prepare store->list of items mapping
     stores = {}
     for store_id, summary in store_summary.items():
@@ -522,12 +581,14 @@ def prepare_stores_for_rendering(selection, store_summary):
         store_id = prod.supermarket_id
         item = {
             "product": prod.name,
-            "brand": "",  # add if available in your FullProduct
+            # "brand": "",
             "code": prod.item_code,
             "qty": prod.packs_needed,
-            "unit_price": prod.price,
+            "original_price": prod.price,  # NEW: Show original price
+            "effective_price": prod.effective_price,  # Use effective price
+            "discount": prod.discount,  # NEW: Include discount
             "promo": prod.promo,
-            "total_price": round(prod.price * prod.packs_needed, 2),
+            "total_price": round(prod.effective_price * prod.packs_needed, 2),  # Use effective price
             "suggestion": prod.selection_notes,
             "checked": True
         }
@@ -536,7 +597,11 @@ def prepare_stores_for_rendering(selection, store_summary):
     # Compute grand total across all stores
     total_payment = sum(s["grand_total"] for s in stores.values())
 
-    return {"stores": stores, "total_payment": round(total_payment, 2)}
+    return {
+        "stores": stores,
+        "total_payment": round(total_payment, 2),
+        "suggestions": suggestions or []
+    }
 
 # ===============================================================================
 # MAIN PROCESSING FUNCTION - ORCHESTRATES THE ENTIRE PIPELINE
@@ -603,34 +668,35 @@ def choose_best_market_llm(
 
         "DECISION FRAMEWORK:\n"
         "1. **Single Store Request Analysis**:\n"
-        "   - If user wants single store, first check if any store has ALL ingredients\n"
+        "   - If user specifically wants single store, first check if any store has ALL ingredients\n"
         "   - Calculate the TRUE cost difference between single-store and multi-store options\n"
-        "   - If single-store total is >30% more expensive, suggest multi-store in notes but still follow preference\n"
+        "   - If single-store total is >20% more expensive, suggest multi-store but still follow preference\n"
         "   - If no store has all items, find the store with MOST coverage and explain missing items\n\n"
         
         "2. **Multi-Store Optimization Rules**:\n"
-        "   - NEVER use a store for just 1-2 items unless absolutely necessary\n"
+        "   - If user did NOT specify buying at a single store only, try out multiple stores.\n"
+        "   - NEVER use a store for just 1-2 items, THINK if user would want that\n"
         "   - Each store order MUST meet minimum order requirement unless it is absolutely worth the delivery fee\n"
         "   - Consider 2-store maximum unless user explicitly allows more\n"
-        "   - Group ingredients logically (e.g., all produce from one store if prices are similar)\n\n"
 
         "3. **Cost Calculation Priorities**:\n"
-        "   - ALWAYS include delivery fees in total cost comparisons\n"
-        "   - Factor in promotions (Buy 1 Get 1 effectively halves the price)\n"
+        "   - If applicable, ALWAYS include delivery fees in total cost comparisons\n"
         "   - Consider price-per-unit, not just absolute price\n"
-        "   - Missing minimum order = wasted delivery fee\n\n"
+        "   - Missing minimum order = wasted delivery fee (unless pickup is viable)\n\n"
 
         "4. **Smart Substitution Logic**:\n"
-        "   - If an ingredient forces multi-store due to availability, check if substitution makes sense\n"
         "   - You can suggest user to not order 'delivery' from a specific store if it is not smart to do so"
-        "   For example, ordering one single item while not meeting minimum order requirement, or paying high delivery fee doesnt make sense.\n"
-        "   You should suggest user to not order a delivery for it in notes in that case, or add it to the order delivery from a store that met minimum requirement.\n"
+        "   For example, ordering one single item while not meeting minimum order requirement, or paying high delivery fee DOES NOT make sense.\n"
+        "   You should suggest user to not order a delivery at all and go for a pickup option instead (should be in the suggestions)\n"
         "   - Always explain substitutions clearly in notes\n"
         "   - Consider store ratings when prices are very close (within 10%)\n\n"
 
-        "5. **Decision Transparency**:\n"
+        "5. **Decision Transparency & Suggestions**:\n"
         "   - In store_summary notes, explain WHY you chose this configuration\n"
-        "   - In product notes, explain any non-obvious choices\n"
+        "   - In product selection_notes, explain any non-obvious choices for that specific item\n"
+        "   - In suggestions field, list all compromises, changes from user preferences, and recommendations\n"
+        "   - You CANNOT put into suggestions removing items from order list. The ingredients are ALL required.\n"
+        "   - Examples for suggestions: 'Changed to pickup to save 45 NIS in delivery fees', 'Unable to find organic tomatoes, selected regular'\n"
         "   - If deviating from user preference, show the cost savings clearly\n\n"
         
         "FEASIBILITY CHECK:\n"
@@ -639,13 +705,23 @@ def choose_best_market_llm(
         "- If the cost exceeds way more (3 times more) than the budget constraint, the request is INFEASIBLE\n"
         "- If user wants single_store but no store has even 50% of ingredients, consider INFEASIBLE\n"
         "- For infeasible requests, you MUST call the 'infeasible_basket' function instead of 'basket_choice'\n\n"
-            
+        
+        "DELIVERY VS PICKUP OPTIONS:\n"
+        "- Every store that offers delivery also offers pickup (usually free)\n"
+        "- Pickup eliminates delivery fees but requires customer to travel to store\n"
+        "- Consider suggesting pickup when:\n"
+        "  * Delivery fees are high relative to order value\n"
+        "  * User is on tight budget and pickup could save significant money\n"
+        "  * Multiple stores needed and pickup could consolidate to fewer locations\n"
+        "- If user specified 'delivery' preference, respect it but can suggest pickup alternative in notes\n"
+        "- If user specified 'pickup', always use pickup (delivery_fee = 0 for calculations)\n\n"
+        
         "CRITICAL RULES:\n"
         "- Every ingredient MUST be selected\n"
         "- Respect single_store preference unless impossible\n"
-        "- Minimize total cost INCLUDING all delivery fees\n"
-        "- Ensure each store order meets minimum requirement\n"
-        "- Provide clear reasoning for all decisions"
+        "- Minimize total cost INCLUDING all delivery fees (consider pickup alternative)\n"
+        "- Ensure each store order meets minimum requirement or justify why not\n"
+        "- Use suggestions field to explain any compromises made\n"
     )
 
     budget_section = ""
@@ -663,18 +739,35 @@ def choose_best_market_llm(
     for store_id, meta in stores_meta.items():
         min_order_section += f"  {store_id}: {meta['min_order']} minimum ({meta['delivery_fee']} delivery)\n"
 
+    delivery_preference = filtered_prefs.get("delivery", "delivery")
+    delivery_section = f"\n### DELIVERY PREFERENCE: {delivery_preference}\n"
+
+    if delivery_preference == "pickup":
+        delivery_section += "User prefers pickup - set delivery_fee = 0 for all calculations.\n"
+    elif delivery_preference == "delivery":
+        delivery_section += "User prefers delivery - use full delivery fees, but can suggest pickup alternative if significant savings.\n"
+    else:
+        delivery_section += "Delivery preference unclear - optimize for best cost including delivery fees.\n"
+
     user_prompt = (
         f"### REQUIRED INGREDIENTS (you must match a product for ALL of these):\n{', '.join(required_ingredients)}\n\n"
         f"### User preferences\n{json.dumps(filtered_prefs, ensure_ascii=False)}\n"
+        f"{delivery_section}"
         f"{budget_section}"
+        f"### Stores metadata\n"
         f"{min_order_section}\n"
-        f"### Stores metadata\n{json.dumps(stores_meta, ensure_ascii=False)}\n\n"
+        # f"\n{json.dumps(stores_meta, ensure_ascii=False)}\n\n"
         "### HOW TO READ THE PRODUCT TABLE:\n"
         "Each product has a unique CID (Compact ID) in format: [ingredient_index]-[store]-[rank]\n"
         "Example: '2-yohananof-0' means:\n"
         "  - Ingredient index 2 (3rd ingredient alphabetically)\n"
         "  - Store: yohananof\n"
         "  - Rank 0: cheapest/first option for this ingredient at this store\n\n"
+        "  - All prices shown in the product table are EFFECTIVE PRICES (discounts already applied)\n"
+        "  - Products with discounts show: 'was X.XX → NOW Y.YY (discount description)'\n"
+        "  - Products without discounts show: 'X.XX'\n"
+        "  - Use the effective prices for all cost calculations and comparisons\n"
+        "  - Factor discounted prices into your optimization decisions\n\n"
         "TABLE FORMAT EXPLANATION:\n"
         "CID | price=XX.XX | SIZE UNIT | promo=PROMOTION\n"
         "- CID: Use this exact code in your selection\n"
@@ -725,6 +818,7 @@ def choose_best_market_llm(
     # Initialize final basket structure
     final_basket = BasketChoice(
         store_summary=temp_basket.store_summary,  # Copy store summaries as-is
+        suggestions=temp_basket.suggestions
     )
 
     # Track total spending per store for summary calculations
@@ -745,7 +839,7 @@ def choose_best_market_llm(
             final_basket.selection[ing] = product_copy
 
             # Update store total for summary calculations
-            store_totals[product_copy.supermarket_id] += product_copy.price * sel.packs_needed
+            store_totals[product_copy.supermarket_id] += product_copy.effective_price * sel.packs_needed  # CHANGED
         else:
             # FAILURE: Invalid CID, add to substitutions instead of crashing
             print(f"Warning: Could not find product for ingredient '{ing}' with cid '{sel.cid}'")
@@ -757,6 +851,7 @@ def choose_best_market_llm(
                 unit="unknown",
                 price=0.0,
                 promo=None,
+                effective_price=0.0,
                 packs_needed=1,
                 selection_notes=f"ERROR: Invalid CID '{sel.cid}' - product not found in database"
             )
@@ -803,9 +898,10 @@ def choose_best_market_llm(
     }
 
     if final_basket.feasible:
-        rendered = prepare_stores_for_rendering(final_basket.selection, final_basket.store_summary)
+        rendered = prepare_stores_for_rendering(final_basket.selection, final_basket.store_summary, final_basket.suggestions)
         rendered["feasible"] = True
         return rendered
+
     return final_basket
 
 
@@ -838,17 +934,17 @@ if __name__ == "__main__":
         }
     }
 
-    smaller_budget_user_prefs = {
-        "food_name": "Peanut satay noodles",
-        "people": 2,
-        "delivery": "delivery",
-        "budget": 15,
-        "raw_text": "If possible order everything from the same store, under ₪15",
-        "special_requests": "",
-        "extra_fields": {
-            "single_store": True
-        }
-    }
+    # smaller_budget_user_prefs = {
+    #     "food_name": "Peanut satay noodles",
+    #     "people": 2,
+    #     "delivery": "delivery",
+    #     "budget": 15,
+    #     "raw_text": "If possible order everything from the same store, under ₪15",
+    #     "special_requests": "",
+    #     "extra_fields": {
+    #         "single_store": True
+    #     }
+    # }
 
     matched_ingredients = {
       "tiv_taam": {
@@ -874,6 +970,7 @@ if __name__ == "__main__":
               "unit": "teaspoons",
               "price": 20.9,
               "promo": "5 NIS discount",
+              "discount": "5",
               "packs_needed": 1
             }
           ],
@@ -957,6 +1054,7 @@ if __name__ == "__main__":
               "unit": "raw",
               "price": 5.9,
               "promo": "5% off",
+              "discount": "5%",
               "packs_needed": 1
             }
           ],
@@ -1018,6 +1116,7 @@ if __name__ == "__main__":
               "unit": "gr",
               "price": 19.1,
               "promo": "5 NIS discount",
+              "discount": "5",
               "packs_needed": 2
             }
           ],
@@ -1178,6 +1277,7 @@ if __name__ == "__main__":
               "unit": "gram",
               "price": 5.8,
               "promo": "5 NIS discount",
+              "discount": "5",
               "packs_needed": 1
             }
           ],
@@ -1275,6 +1375,7 @@ if __name__ == "__main__":
               "unit": "gram",
               "price": 11.0,
               "promo": "10 NIS discount",
+              "discount": "10",
               "packs_needed": 1
             }
           ],
@@ -1307,6 +1408,7 @@ if __name__ == "__main__":
                         "unit": "teaspoons",
                         "price": 20.9,
                         "promo": "5 NIS discount",
+                        "discount": "5",
                         "packs_needed": 1
                     }
                 ],
@@ -1390,6 +1492,7 @@ if __name__ == "__main__":
                         "unit": "raw",
                         "price": 5.9,
                         "promo": "5% off",
+                        "discount": "5%",
                         "packs_needed": 1
                     }
                 ],
@@ -1441,6 +1544,7 @@ if __name__ == "__main__":
                         "unit": "gr",
                         "price": 19.1,
                         "promo": "5 NIS discount",
+                        "discount": "5",
                         "packs_needed": 2
                     }
                 ],
@@ -1591,6 +1695,7 @@ if __name__ == "__main__":
                         "unit": "gram",
                         "price": 5.8,
                         "promo": "5 NIS discount",
+                        "discount": "5",
                         "packs_needed": 1
                     }
                 ],
@@ -1678,6 +1783,7 @@ if __name__ == "__main__":
                         "unit": "gram",
                         "price": 11.0,
                         "promo": "10 NIS discount",
+                        "discount": "10",
                         "packs_needed": 1
                     }
                 ],
@@ -1686,5 +1792,5 @@ if __name__ == "__main__":
         }
     }
 
-    basket = choose_best_market_llm(missing_from_all_matched_ingredients, smaller_budget_user_prefs)
-    print(basket.model_dump_json(indent=2))
+    basket = choose_best_market_llm(matched_ingredients, user_prefs)
+    print(json.dumps(basket, indent=2, ensure_ascii=False))
