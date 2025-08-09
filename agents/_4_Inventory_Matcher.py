@@ -74,7 +74,7 @@ Extracts JSON from the LLM response text.
     if match:
         return match.group(1).strip()
     return text
-def run_matcher_agent(df_recipe, df_inventory='../data/home_inventory.csv', batch_size=5,tokens_filename="../tokens/total_tokens_Nagham.txt"):
+def run_matcher_agent(df_recipe, df_inventory='../data/home_inventory.csv', batch_size=5,tokens_filename="../tokens/total_tokens.txt"):
     """
     Splits the inventory into batches and matches each batch to the recipe ingredients.
     Returns: List of relevant inventory items (as dicts).

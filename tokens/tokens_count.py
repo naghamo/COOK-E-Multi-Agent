@@ -13,15 +13,33 @@ def update_total_tokens(new_tokens, filename="../tokens/total_tokens.txt"):
     return total
 
 
-#use this in the pipeline to update the total tokens remember to change name
-# from langchain.callbacks import get_openai_callback
-#from tokens_count import update_total_tokens
-# formatted_prompt = prompt_template.format(user_input=user_input)
-# messages = [HumanMessage(content=formatted_prompt)]
-# with get_openai_callback() as cb:
-#
-#     response = chat(messages=messages)
-#     print("Prompt tokens:", cb.prompt_tokens)
-#     print("Completion tokens:", cb.completion_tokens)
-#     print("Total tokens (this run):", cb.total_tokens)
-#     update_total_tokens(cb.total_tokens, filename="../tokens/total_tokens_Nagham.txt")
+#merge the tokens files
+def merge_tokens_files(input_files, output_file="../tokens/total_tokens.txt"):
+    """
+    Merges multiple token count files into a single total count file.
+
+    Args:
+        input_files (list): List of input token files to merge.
+        output_file (str): Path to the output file where the total will be saved.
+    """
+    total_tokens = 0
+    for file in input_files:
+        try:
+            with open(file, "r") as f:
+                tokens = int(f.read().strip())
+                total_tokens += tokens
+        except (FileNotFoundError, ValueError):
+            print(f"Skipping invalid or missing file: {file}")
+
+    with open(output_file, "w") as f:
+        f.write(str(total_tokens))
+    print(f"Total tokens merged into {output_file}: {total_tokens}")
+if __name__ == "__main__":
+    # Example usage for debugging and development
+    input_files = [
+        "total_tokens_Nagham.txt",
+        "total_tokens_Seva.txt",
+        "total_tokens.txt",
+    ]
+    merge_tokens_files(input_files, output_file="total_tokens1.txt")
+    print("Tokens merged successfully.")

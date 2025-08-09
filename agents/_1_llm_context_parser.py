@@ -61,7 +61,7 @@ def extract_json_from_llm(text):
         return match.group(1).strip()
     return text
 # Function to generate context from user input
-def parse_context(user_input, tokens_filename="../tokens/total_tokens_Nagham.txt"):
+def parse_context(user_input, tokens_filename="../tokens/total_tokens.txt"):
     """Parses user input to extract structured context using the LLM."""
     formatted_prompt = prompt_template.format(user_input=user_input)
     messages = [HumanMessage(content=formatted_prompt)]

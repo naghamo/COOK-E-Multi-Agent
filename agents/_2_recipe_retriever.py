@@ -296,7 +296,7 @@ def extract_recipe_dict(agent_response: dict) -> dict:
 # ------------------------------------------------------------------
 # 6. Agent Runner with Token Logging
 # ------------------------------------------------------------------
-def retrieve_recipe(parsed_request, tokens_filename="../tokens/total_tokens_Seva.txt"):
+def retrieve_recipe(parsed_request, tokens_filename="../tokens/total_tokens.txt"):
     """
     Invoke the agent on parsed_request and log token usage.
     Returns the agent's JSON response as a string.

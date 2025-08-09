@@ -264,7 +264,7 @@ INGREDIENT_FN = {
 def gpt_pick_for_batch(
         needs: list[dict],
         cands: list[list[Product]],
-        tokens_filename: str = "../tokens/total_tokens_Seva.txt"
+        tokens_filename: str = "../tokens/total_tokens.txt"
 ) -> list[dict]:
     """
     Returns validated payload:
@@ -362,7 +362,7 @@ def gpt_pick_for_batch(
 # ---------------------------------------------------------------
 # 4. Worker for ONE store
 # ---------------------------------------------------------------
-def match_one_store(all_needs: list[dict], store_id: str,tokens_filename: str = "../tokens/total_tokens_Seva.txt") -> tuple[str, dict]:
+def match_one_store(all_needs: list[dict], store_id: str,tokens_filename: str = "../tokens/total_tokens.txt") -> tuple[str, dict]:
     api = CsvSupermarket(store_id)
     cand_per_need = [api.search(n, N_CANDIDATES) for n in all_needs]
 
@@ -398,7 +398,7 @@ SUPERMARKET_IDS = ['tiv_taam',
               'victory',
               'osher_ad',
               'mega']
-async def match_all_stores(ingredients: list[dict],tokens_filename: str = "../tokens/total_tokens_Seva.txt") -> dict:
+async def match_all_stores(ingredients: list[dict],tokens_filename: str = "../tokens/total_tokens.txt") -> dict:
 
     loop = asyncio.get_running_loop()
     with cf.ThreadPoolExecutor() as pool:

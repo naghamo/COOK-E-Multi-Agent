@@ -134,7 +134,7 @@ You can:
 
 ---
 
-### 5️⃣ Review and Pay  
+### 5️⃣ Review and Pay Confirmation
 You’ll see:  
 - 🛒 **Stores and products** chosen for you  
 - 📦 **Delivery options** per store  

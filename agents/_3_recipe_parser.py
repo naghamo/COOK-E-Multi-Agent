@@ -84,7 +84,7 @@ ingredient_list_schema = {
 # 3. LLM Parsing Functions
 # ──────────────────────────────────────────────────────────────
 
-def parse_ingredients_llm(lines: List[str],tokens_filename="../tokens/total_tokens_Seva.txt") -> List[Dict[str, Any]]:
+def parse_ingredients_llm(lines: List[str],tokens_filename="../tokens/total_tokens.txt") -> List[Dict[str, Any]]:
     """
     Parse a list of ingredient lines into structured JSON using the LLM.
     Returns a list of dicts with keys: name, quantity, unit, note.
@@ -348,5 +348,5 @@ if __name__ == "__main__":
         "directions": ["Cook noodles...", "Whisk sauce...", "Combine..."]
     }
 
-    final_json = build_scaled_ingredient_list(user_request_json, recipe_json, tokens_filename="../tokens/total_tokens_Seva.txt")
+    final_json = build_scaled_ingredient_list(user_request_json, recipe_json, tokens_filename="../tokens/total_tokens.txt")
     print(json.dumps(final_json, indent=2, ensure_ascii=False))
