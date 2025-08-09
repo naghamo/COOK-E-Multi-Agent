@@ -1,4 +1,9 @@
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+
 import json
+import math
 import os
 
 import pandas as pd
@@ -7,6 +12,7 @@ from pipeline import run_pipeline_to_inventory_confirmation, run_pipeline_to_ord
     run_pipeline_to_order_execution
 from datetime import datetime
 import pprint
+from uuid import uuid4
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'
 
@@ -16,6 +22,23 @@ INVENTORY_CSV = "data/home_inventory.csv"
 OLD_REQUESTS_CSV = "data/old_requests.csv"
 
 UNITS_FILE = "data/units.txt"
+def update_old_request_by_id(request_id, update_fields):
+    '''Updates an old request by its ID in the CSV file.'''
+    if not os.path.exists(OLD_REQUESTS_CSV):
+        return False
+    df = pd.read_csv(OLD_REQUESTS_CSV)
+    if 'request_id' not in df.columns:
+        return False
+    mask = df['request_id'] == request_id
+    if not mask.any():
+        return False
+    for k, v in update_fields.items():
+        if k not in df.columns:
+            # add missing column if needed
+            df[k] = ""
+        df.loc[mask, k] = v
+    df.to_csv(OLD_REQUESTS_CSV, index=False)
+    return True
 
 def load_units():
     if not os.path.exists(UNITS_FILE):
@@ -96,7 +119,11 @@ def submit_request():
         )
 
     # ---- ADD TO OLD REQUESTS ----
+    request_id = str(uuid4())
+    session['last_request_id'] = request_id
+
     request_data = {
+        "request_id": request_id,
         "user": session['user'],
         "user_text": user_text,
         "recipe_title": result['recipe'].get('title', ''),
@@ -105,8 +132,10 @@ def submit_request():
         "recipe_ingredients": json.dumps(result['ingredients'], ensure_ascii=False),
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
-
     save_old_request(request_data)
+    session['last_recipe_title'] = result['recipe'].get('title', ''),
+    session['last_recipe_directions'] = result['recipe'].get('directions', [])
+
     confirmation_list = result['confirmation_json']
     for ing in confirmation_list:
         u = ing.get("to_buy_unit")
@@ -132,10 +161,7 @@ def submit_request():
 def confirm_ingredient():
     if 'user' not in session:
         return redirect(url_for('login'))
-    print("---- request.form received ----")
-    for k, v in request.form.items():
-        print(f"{k}: {v}")
-    print("--------------------------------")
+
 
     inventory = load_inventory()
     units_list = load_units()
@@ -152,27 +178,18 @@ def confirm_ingredient():
             break
         to_buy_min = float(request.form.get(f"to_buy_min_{i}", 0))
         to_buy_unit = request.form.get(f"to_buy_unit_{i}")
-        confirmed_ingredients.append({
-            "name": name,
-            "to_buy_min": to_buy_min,
-            "to_buy_unit": to_buy_unit
-        })
+        if to_buy_min>0:
+            confirmed_ingredients.append({
+                "name": name,
+                "to_buy_min": to_buy_min,
+                "to_buy_unit": to_buy_unit
+            })
         i += 1
-    # print(confirmed_ingredients)
-    # confirmed_ingredients = [
-    #     {'name': 'olive oil', 'to_buy_min': 50, 'to_buy_unit': 'ml'},
-    #     {'name': 'tomatoes', 'to_buy_min': 300, 'to_buy_unit': 'gr'},
-    #     {'name': 'cheddar', 'to_buy_min': 250, 'to_buy_unit': 'gr'},
-    #     {'name': 'salt', 'to_buy_min': 1, 'to_buy_unit': 'teaspoons'},
-    #     {'name': 'garlic', 'to_buy_min': 3, 'to_buy_unit': 'cloves'},
-    #     {'name': 'onion', 'to_buy_min': 5, 'to_buy_unit': 'units'},
-    #     {"name": "tomato sauce", "to_buy_min": 500, "to_buy_unit": "milliliter"}
-    #     # {'name': 'bread', 'to_buy_min': 1, 'to_buy_unit': 'loaf'},
-    #     # {'name': 'milk', 'to_buy_min': 1, 'to_buy_unit': 'liter'},
-    # ]
+    print(confirmed_ingredients)
+
     # 2. Check if everything is at home
-    nothing_to_buy = all(item["to_buy_min"] == 0 for item in confirmed_ingredients)
-    if nothing_to_buy:
+
+    if len(confirmed_ingredients) == 0:
         recipe_title = recipe.get('title', '')
         recipe_servings = recipe.get('servings', '')
         recipe_ingredients = recipe.get('ingredients', [])  # as list of strings
@@ -207,8 +224,9 @@ def confirm_ingredient():
         )
 
     # 3. Otherwise, proceed with purchase pipeline
-    result = run_pipeline_to_order_confirmation(confirmed_ingredients, tokens_filename="tokens/total_tokens.txt")
-
+    result,context = run_pipeline_to_order_confirmation(confirmed_ingredients, tokens_filename="tokens/total_tokens.txt")
+    session['pending_stores'] = result.get('stores', {})
+    print(result)
     if 'error' in result or result.get("not_feasible"):
         # Handle case where no feasible order/cart could be made
         return render_template(
@@ -219,25 +237,28 @@ def confirm_ingredient():
             error=result.get('error', "Sorry, the requested order is not feasible."),
             units=units_list,
             user_input=user_text,
-            request=True,
+            request=False,
         )
-
-    # # If "cart" is empty, show a special message or the recipe summary
-    # if not result.get("cart"):
-    #     return render_template(
-    #         'main.html',
-    #         user=session['user'],
-    #         inventory=inventory,
-    #         old_requests=old_requests,
-    #         units=units_list,
-    #         user_input=user_text,
-    #         recipe_title=result.get('recipe_title', ''),
-    #         recipe_directions=result.get('directions', []),
-    #         recipe_ingredients=result.get('ingredients', []),
-    #         nothing_to_buy=True,  # special flag for template
-    #         request=True,
-    #     )
-
+    print(context)
+    print( result['total_payment'])
+    print(context['budget'])
+    print(context['budget'] is not None)
+    print(result['total_payment']>context['budget'])
+    if context['budget'] is not None and result['total_payment']>context['budget']:
+        print('hii')
+        return render_template(
+            'main.html',
+            user=session['user'],
+            inventory=inventory,
+            old_requests=old_requests,
+            stores=result['stores'],  # dict of stores
+            total_payment=result['total_payment'],  # grand total of all stores
+            payment_conf=True,
+            units=units_list,
+            user_input=user_text,
+            request=True,
+            message=f"Total payment {result['total_payment']} NIS exceeds your budget of {context['budget']} NIS. Sorry, we couldn’t find an order within your budget, but we’ve selected the closest and cheapest option available for you. you can cancel items or delivery to get cheaper order"
+        )
     # Normal payment confirmation view:
     return render_template(
         'main.html',
@@ -256,44 +277,93 @@ def confirm_order():
     if 'user' not in session:
         return redirect(url_for('login'))
 
-    # Load whatever you need from session or elsewhere
     user = session['user']
     inventory = load_inventory()
     units_list = load_units()
     old_requests = load_old_requests()
 
-    # -- Assume you saved these as session variables or similar in previous steps
+    # Pull what we saved earlier
     recipe_title = session.get('last_recipe_title', '')
     recipe_directions = session.get('last_recipe_directions', [])
-    stores = pd.read_csv('data\supermarketsDB.csv')['store_name']
+    pending_stores = session.get('pending_stores', {})  # dict we rendered in payment step
+
     print("\n--- Incoming form data to /confirm_order ---")
     pprint.pprint(dict(request.form))
     print("--- End of form data ---\n")
 
-    # 1. Get delivery checkboxes for each store
-    delivery_choices = {store: (request.form.get(f"delivery_{store}") == "yes") for store in stores}
+    # 1) Delivery choices (per store)
+    delivery_choices = {
+        store: (request.form.get(f"delivery_{store}") == "yes")
+        for store in pending_stores.keys()
+    }
 
-    # 2. Run pipeline to generate PDFs for each supermarket (and optionally use LLM for style)
+    # 2) Rebuild a filtered stores_dict (include only items the user kept checked)
+    stores_dict = {}
+    for store, info in pending_stores.items():
+        kept_items = []
+        for idx, item in enumerate(info.get('items', [])):
+            # Checkbox name pattern from your template: name="buy_{store}_{loop.index0}"
+            if request.form.get(f"buy_{store}_{idx}") == "on":
+                kept_items.append(item)
 
+        if not kept_items:
+            # If user unchecked everything in a store, skip that store entirely
+            continue
+
+        # Recompute totals WITHOUT assuming previous grand_total is still valid
+        subtotal = sum(float(x.get('total_price', 0) or 0) for x in kept_items)
+        delivery_fee = float(info.get('delivery_fee', 0) or 0) if delivery_choices.get(store, True) else 0.0
+        grand_total = subtotal + delivery_fee
+
+        stores_dict[store] = {
+            "items": kept_items,
+            "delivery_fee": float(info.get('delivery_fee', 0) or 0),  # keep original fee for PDF display
+            "grand_total": round(grand_total, 2),
+            "notes": info.get("notes", ""),
+        }
+
+    # Safety: if all stores were unchecked, send the user back with a friendly message
+    if not stores_dict:
+        return render_template(
+            'main.html',
+            user=user,
+            inventory=inventory,
+            old_requests=old_requests,
+            error="You unchecked all items. Please select at least one product to order.",
+            units=units_list,
+            request=True
+        )
+
+    # 3) Generate PDFs (NOTE: do NOT pass recipe_directions here; the function doesn’t accept it)
     pdf_links = run_pipeline_to_order_execution(
-        stores_dict=stores,
+        stores_dict=stores_dict,
         recipe_title=recipe_title,
-        recipe_directions=recipe_directions,
         delivery_choices=delivery_choices,
         user_name=user,
+        pdf_dir='static/receipts'
     )
 
-    # 3. Save this purchase in old requests (with PDF links)
-    request_data = {
-        "user": user,
+    # 4) Save record of the purchase
+    request_id = session.get('last_request_id')
+
+    update_fields = {
         "recipe_title": recipe_title,
         "directions": json.dumps(recipe_directions, ensure_ascii=False),
-        "stores": json.dumps(stores, ensure_ascii=False),
+        "stores": json.dumps(list(stores_dict.keys()), ensure_ascii=False),
         "pdf_links": json.dumps(pdf_links, ensure_ascii=False),
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "purchase_result": "Order placed",
     }
-    save_old_request(request_data)
+
+    updated = False
+    if request_id:
+        updated = update_old_request_by_id(request_id, update_fields)
+
+    # Fallback if for some reason the row wasn’t found (e.g., very old CSV without request_id)
+    if not updated:
+        # include request_id so future updates work
+        fallback_data = {"request_id": request_id or str(uuid4()), "user": user, **update_fields}
+        save_old_request(fallback_data)
 
     return render_template(
         'main.html',
@@ -302,13 +372,33 @@ def confirm_order():
         old_requests=load_old_requests(),
         recipe_title=recipe_title,
         recipe_directions=recipe_directions,
-        pdf_links=pdf_links,     # Dict {store: url}
+        pdf_links=pdf_links,
         payment_done=True,
         request=True,
         units=units_list,
     )
 
 
+@app.template_filter('from_json')
+def from_json_filter(s):
+    # Treat None / NaN as empty
+    if s is None:
+        return []
+    if isinstance(s, float) and math.isnan(s):
+        return []
+
+    # Parse JSON strings
+    if isinstance(s, str):
+        try:
+            return json.loads(s)
+        except Exception:
+            # Fallback: return the raw string in a list
+            return [s]
+
+    # Pass through lists/dicts as-is; everything else -> wrap to list of str
+    if isinstance(s, (list, tuple, dict)):
+        return s
+    return [str(s)]
 @app.template_filter('stripdotzero')
 def stripdotzero(s):
     s = str(s)

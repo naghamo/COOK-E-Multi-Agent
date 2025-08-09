@@ -37,6 +37,17 @@ import warnings
 import asyncio
 
 
+from pydantic import BaseModel
+
+def _to_dict(x):
+    if isinstance(x, BaseModel):
+        # pydantic v2
+        try:
+            return x.model_dump()
+        except AttributeError:
+            # pydantic v1
+            return x.dict()
+    return x
 
 global_context = {}  # Global variable to store context for later use in the pipeline
 # --- Pipeline Functions ---
@@ -80,25 +91,35 @@ def run_pipeline_to_order_confirmation(ingredents, tokens_filename="tokens/total
         products =asyncio.run( match_all_stores(ingredents, tokens_filename=tokens_filename))
         # 7. Select best market based on products
         best_market = choose_best_market_llm(products,global_context, tokens_filename=tokens_filename)
-        print(best_market)
-        if best_market.get("feasible") is False:
+        best_market = _to_dict(best_market)
 
-            return {"error": f"Error  {best_market.reason},{best_market.suggestions} "}
+        # Works whether best_market is dict or object
+        feasible = best_market.get("feasible") if isinstance(best_market, dict) else getattr(best_market, "feasible",
+                                                                                             None)
+        if feasible is False:
+            reason = best_market.get("reason") if isinstance(best_market, dict) else getattr(best_market, "reason", "")
+            suggestions = best_market.get("suggestions") if isinstance(best_market, dict) else getattr(best_market,
+                                                                                                       "suggestions",
+                                                                                                       [])
+            return {
+                "error": f" {reason}, {suggestions}"
+            },None
 
-        return best_market
-def run_pipeline_to_order_execution(stores_dict, recipe_title, recipe_directions, delivery_choices,user_name, pdf_dir='static/receipts'):
+        return best_market,global_context
+def run_pipeline_to_order_execution(stores_dict, recipe_title, delivery_choices, user_name, pdf_dir='static/receipts'):
     """
-    Runs the final part of the pipeline to execute the order.
-    Returns the order confirmation pdfs
-    """
+    Runs the final part of the pipeline to generate PDF receipts for the order."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        # 8. Finalize order and generate PDFs
-        pdf_filename = finalize_order_generate_pdfs(
-            stores_dict, recipe_title, recipe_directions, delivery_choices,pdf_dir=pdf_dir,user_name=user_name,
+        pdf_filenames = finalize_order_generate_pdfs(
+            stores_dict=stores_dict,
+            recipe_title=recipe_title,
+            delivery_choices=delivery_choices,
+            user_name=user_name,
+            pdf_dir=pdf_dir
         )
+        return pdf_filenames
 
-        return pdf_filename
 
 
 

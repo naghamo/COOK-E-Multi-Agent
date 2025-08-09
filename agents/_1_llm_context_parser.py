@@ -35,7 +35,7 @@ Given a user's free-text request, extract as much information as possible into a
 - people: integer. (Default to 1 if not specified.)
 - delivery: string. ("delivery", "pickup", or null; default to "delivery" if not specified.)
 - special_requests: string or null.
-- budget: string or null.
+- budget: int or null.
 - raw_text: the original user input.
 - extra_fields: dictionary for any other constraints or preferences (e.g., allergies, brands, supermarkets, dietary restrictions, tools, timing, etc.), using snake_case for keys.
 - error: string, only if the input is ambiguous, not a food request, or if food_name is missing.

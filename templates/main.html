@@ -12,7 +12,7 @@
             <span class="nav-title">COOK·E</span>
         </div>
         <ul class="nav-links">
-            <li><a href="#request-section">New Request</a></li>
+            <li><a href="/main">New Request</a></li>
             <li><a href="#inventory-section">Home Inventory</a></li>
             <li><a href="#old-requests-section">Old Requests</a></li>
             <li><a href="/logout">Logout</a></li>
@@ -29,6 +29,12 @@
             <b>Error:</b> {{ error }}
         </div>
         {% endif %}
+        {% if message %}
+  <div class="error" style="color:#a00;background:#fff8e0;padding:10px;margin-bottom:20px;">
+    {{ message }}
+  </div>
+{% endif %}
+
 
         <section class="welcome-box card">
             <h1>COOK·E – Cognitive Organized Online Kitchen Expert</h1>
@@ -197,25 +203,34 @@
 </section>
 {% endif %}
 {% if payment_done %}
-  <section class="card">
-    <h2>Order Complete! 🧾 Download Your Receipts</h2>
-    {% if pdf_links %}
-      <ul>
-        {% for store, link in pdf_links.items() %}
-          <li>
-            <a href="{{ link }}" target="_blank">Download {{ store|capitalize }} Receipt PDF</a>
-          </li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-    <h3>Recipe Directions:</h3>
+<section class="card">
+  <h2>Order Complete! 🧾 Download Your Receipts</h2>
+  {% if pdf_links %}
+    <ul>
+      {% for store, link in pdf_links.items() %}
+        <li><a href="{{ link }}" target="_blank">Download {{ store|capitalize }} Receipt PDF</a></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  <button type="button"
+          class="secondary-btn toggle-btn"
+          data-target="#final-directions"
+          aria-expanded="false">
+     directions
+  </button>
+
+  <div id="final-directions" class="collapsible" style="display:none;margin-top:10px;">
+    <h3>Recipe Directions</h3>
     <ol>
       {% for step in recipe_directions %}
         <li>{{ step }}</li>
       {% endfor %}
     </ol>
-  </section>
+  </div>
+</section>
 {% endif %}
+
 
 
 
@@ -224,7 +239,7 @@
         <!-- Home Inventory Section -->
         <section id="inventory-section" class="card">
             <h2>Home Inventory</h2>
-            <form method="POST" action="/inventory">
+            <form method="POST" action="/main">
                 <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                     <div style="margin-bottom: 10px;">
                         <input type="text" id="inventory-search" placeholder="Search by item name..." style="width: 100%; padding: 8px;">
@@ -247,7 +262,7 @@
                                     <input type="text" name="name" value="{{ row.name }}" required>
                                 </td>
                                 <td>
-                                    <input type="number" min="0" name="quantity" value="{{ row.quantity }}" required>
+                                    <input type="number" min="0" step="any" name="quantity" value="{{ row.quantity }}" required>
                                 </td>
                                 <td>
                                     <select name="unit">
@@ -302,35 +317,59 @@
 
         <!-- Old Requests Section -->
         <section id="old-requests-section" class="card">
-    <h2>Old Requests</h2>
-    <ul>
-        {% for req in old_requests or [] %}
-            <li>
-                <strong>{{ req['user_text'] or req['text'] }}</strong>
-                {% if req['recipe_title'] %}
-                    <br>
-                    <b>Recipe:</b> {{ req['recipe_title'] }} (servings: {{ req['recipe_servings'] }})
-                {% endif %}
-                {% if req['directions_list'] %}
-                    <br>
-                    <b>Directions:</b>
-                    <ol style="margin-top:0.5em;">
-                        {% for step in req['directions_list'] %}
-                            <li>{{ step }}</li>
-                        {% endfor %}
-                    </ol>
-                {% endif %}
-                <br>
-                <small>
-                    User: {{ req['user'] }},
-                    Date: {{ req['timestamp'] }}
-                </small>
-            </li>
-        {% else %}
-            <li>No old requests yet.</li>
-        {% endfor %}
-    </ul>
+  <h2>Old Requests</h2>
+  <ul>
+    {% for req in old_requests or [] %}
+      {% set req_id = 'req_' ~ loop.index0 %}
+      {% set dirs = req['directions']|from_json %}
+      {% set links = req['pdf_links']|from_json %}
+      {% set stores_list = req['stores']|from_json %}
+      <li>
+        <strong>{{ req['user_text'] or req['text'] }}</strong>
+        {% if req['recipe_title'] %}
+          <br><b>Recipe:</b> {{ req['recipe_title'] }}{% if req['recipe_servings'] %} (servings: {{ req['recipe_servings'] }}){% endif %}
+        {% endif %}
+
+        {% if stores_list %}
+          <br><small><b>Stores:</b> {{ stores_list|join(', ') }}</small>
+        {% endif %}
+
+        {% if links %}
+          <br><b>Receipts:</b>
+          <ul style="margin-top:0.3em;">
+            {% for store, url in links.items() %}
+              <li><a href="{{ url }}" target="_blank">Download {{ store|capitalize }} receipt</a></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        {% if dirs and dirs|length > 0 %}
+          <div style="margin-top:6px;">
+            <button type="button"
+                    class="secondary-btn toggle-btn"
+                    data-target="#dirs_{{ req_id }}"
+                    aria-expanded="false">
+               directions
+            </button>
+          </div>
+          <div id="dirs_{{ req_id }}" class="collapsible" style="display:none;margin-top:8px;">
+            <ol style="margin-top:0.5em;">
+              {% for step in dirs %}
+                <li>{{ step }}</li>
+              {% endfor %}
+            </ol>
+          </div>
+        {% endif %}
+
+        <br>
+        <small>User: {{ req['user'] }}, Date: {{ req['timestamp'] }}</small>
+      </li>
+    {% else %}
+      <li>No old requests yet.</li>
+    {% endfor %}
+  </ul>
 </section>
+
 {% endif %}
 
     </main>
@@ -425,6 +464,38 @@ document.addEventListener('DOMContentLoaded', function () {
         const itemText = input?.value?.toLowerCase() || '';
         row.style.display = itemText.includes(query) ? '' : 'none';
       });
+    });
+  });
+   document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.toggle-btn');
+    if (!btn) return;
+
+    const sel = btn.getAttribute('data-target');
+    if (!sel) return;
+
+    const panel = document.querySelector(sel);
+    if (!panel) return;
+
+    const isOpen = panel.style.display !== 'none';
+    panel.style.display = isOpen ? 'none' : 'block';
+    btn.setAttribute('aria-expanded', String(!isOpen));
+    // Optional: change button label
+    const base = btn.dataset.baseLabel || btn.textContent.replace(/^Show|^Hide/i, '').trim();
+    btn.dataset.baseLabel = base;
+    btn.textContent = (isOpen ? 'Show ' : 'Hide ') + base;
+  });
+
+  // Initialize default button labels as "Show ..."
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.toggle-btn').forEach(function(btn) {
+      const sel = btn.getAttribute('data-target');
+      const panel = document.querySelector(sel);
+      if (!panel) return;
+      const base = btn.dataset.baseLabel || btn.textContent.replace(/^Show|^Hide/i, '').trim() || 'details';
+      btn.dataset.baseLabel = base;
+      const isOpen = panel.style.display !== 'none';
+      btn.textContent = (isOpen ? 'Hide ' : 'Show ') + base;
+      btn.setAttribute('aria-expanded', String(isOpen));
     });
   });
 </script>

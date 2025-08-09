@@ -376,4 +376,9 @@ select {
 .hidden {
   display: none;
 }
+.collapsible { animation: fadeSlide .18s ease-out; }
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
