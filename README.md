@@ -49,7 +49,6 @@ COOK-E_Agent/
 │   ├── home_inventory.csv                      # Current user home inventory
 │   ├── old_requests.csv                        # History of user cooking requests, recipes, receipts
 │   ├── productsDB.csv                          # Full list of available products from supermarkets
-│   ├── RecipeNLG_dataset.csv                   # Recipe dataset used for retrieval/generation
 │   ├── supermarketsDB.csv                      # List of supermarkets with metadata
 │   ├── unit_productsDB.csv                     # Mapping of product units for matching/normalization
 │   └── units.txt                               # Available measurement units for quantities
