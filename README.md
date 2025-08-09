@@ -27,6 +27,8 @@ During development, we made several architectural adjustments to improve efficie
 ---
 
 ## 🗂️ Project Structure
+* **Recipes Database:** Stored as embeddings in a Qdrant vector database and retrieved using a Retrieval-Augmented Generation (RAG) approach for accurate and context-aware recipe matching.
+
 
 ```
 COOK-E_Agent/
@@ -39,8 +41,7 @@ COOK-E_Agent/
 │   ├── _5_inventory_confirmation.py           # Creates confirmation table for user to approve required purchases
 │   ├── _6_product_matcher.py                   # Maps ingredients to real supermarket products
 │   ├── _7_market_selector.py                   # Selects best store(s) based on price, availability, delivery, promotions
-│   ├── _8_order_execution.py                   # Simulates payment, updates inventory, generates PDF receipts
-│   └── __init__.py                              # Marks the agents folder as a Python package
+│   ├── _8_order_execution.py                   # Simulates payment, generates PDF receipts
 │
 ├── data/                                      # Datasets and stored CSVs for inventory, products, and supermarkets
 │   ├── home_inventory.csv                      # Current user home inventory
@@ -67,7 +68,7 @@ COOK-E_Agent/
 │   ├── tokens_count.py                         # Utility to update token usage logs
 │   └── total_tokens.txt                        # Log file of total tokens consumed
 │
-├── .env                                       # Environment variables (API keys, config)
+├── .env                                       # Environment variables (API keys)
 ├── .gitignore                                 # Git ignore file to exclude sensitive/unnecessary files
 ├── app.py                                     # Flask app – handles routes, user sessions, renders HTML
 ├── pipeline.py                                # Orchestrates execution flow between agents
