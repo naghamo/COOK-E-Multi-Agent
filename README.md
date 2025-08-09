@@ -4,15 +4,25 @@ COOK·E is an **autonomous, multi-agent AI system** that transforms a user's fre
 
 ---
 
-## 💡 Features
+## 🔄 Changes from Original Proposal
 
-* **Free-form input:** User writes any cooking request ("Vegan shakshuka for 4, no tofu, under 70 NIS, delivery").
-* **Recipe generation:** Retrieves or creates suitable recipes matching constraints.
-* **Inventory-aware:** Uses your home inventory to avoid redundant purchases.
-* **Product & supermarket matching:** Finds real products in Israeli supermarkets, compares prices, and optimizes for preferences.
-* **Order simulation:** Shows you a detailed “receipt” and simulates order execution.
-* **Modular agents:** Each task is handled by a dedicated agent for explainability, modularity, and rapid development.
-* **Modern web app:** Secure login, easy editing of home inventory, request history, and results.
+During development, we made several architectural adjustments to improve efficiency, reduce redundancy, and better fit our web app structure:  
+
+1. **Recipe Validation Agent → Merged into Recipe Retriever Agent**  
+   - **Reason:** The Recipe Retriever already had access to all necessary context and constraints when choosing a recipe. This meant it could also decide whether the recipe was valid, eliminating the need for a separate validator agent.  
+   - **Benefit:** Reduced redundant LLM calls and simplified the pipeline logic.  
+
+2. **Changed Order of Inventory Matching and Inventory Confirmation**  
+   - **Original Plan:** Filter the recipe’s ingredients against the user’s inventory before asking for confirmation.  
+   - **Updated Approach:** First match the recipe’s ingredients against the **entire** inventory to ensure correct ingredient mapping, then show this matched list to the user for confirmation.  
+   - **Reason:** Our web interface already organizes ingredients neatly in the confirmation table, and the reasoning step in the confirmation agent was sufficient to handle filtering. No additional inventory filtering step was required afterward.  
+
+3. **Delivery Validator Agent → Merged into Market Selector Agent**  
+   - **Reason:** The Market Selector already reasons about store choice, delivery options, and constraints. Incorporating delivery validation directly here allowed it to provide suggestions in one step, based on a unified reasoning process.  
+
+4. **Payment Confirmation & Order Execution Agents → Merged into a Single Agent**  
+   - **Reason:** Given our web app structure, it was enough to obtain the user’s confirmation once and then simulate payment and generate the PDF order in a single agent.  
+   - **Benefit:** Reduced complexity while still providing clear confirmation and output to the user.  
 
 ---
 
@@ -21,41 +31,53 @@ COOK·E is an **autonomous, multi-agent AI system** that transforms a user's fre
 ```
 COOK-E_Agent/
 │
-├── agents/
-│   ├── llm_context_parser.py
-│   ├── recipe_retriever.py
-│   ├── recipe_parser.py
-│   ├── feasibility_checker.py
-│   ├── inventory_filter.py
-│   ├── product_matcher.py
-│   ├── market_selector.py
-│   ├── cart_delivery_validator.py
-│   ├── order_confirmation.py
-│   ├── order_execution.py
-│   └── __init__.py
+├── agents/                                  # All AI agents, each responsible for a pipeline step
+│   ├── _1_llm_context_parser.py              # Parses user free-text into structured JSON (dish, servings, budget, etc.)
+│   ├── _2_recipe_retriever.py                # Retrieves or generates the best-matching recipe and validates it
+│   ├── _3_cart_delivery_validator.py         # (Legacy) Delivery feasibility check – now merged into market_selector
+│   ├── _4_recipe_parser.py                    # Converts recipe text into structured ingredient list with quantities
+│   ├── _5_Inventory_Matcher.py                # Matches recipe ingredients to the user's home inventory
+│   ├── _6_inventory_confirmation.py           # Creates confirmation table for user to approve required purchases
+│   ├── _7_inventory_filter.py                  # Optional ingredient filtering (mostly handled in confirmation step)
+│   ├── _8_product_matcher.py                   # Maps ingredients to real supermarket products
+│   ├── _9_market_selector.py                   # Selects best store(s) based on price, availability, delivery, promotions
+│   ├── _10_order_confirmation.py               # Displays the payment summary for user review before order placement
+│   ├── _11_order_execution.py                   # Simulates payment, updates inventory, generates PDF receipts
+│   └── __init__.py                              # Marks the agents folder as a Python package
 │
-├── data/
-│   ├── home_inventory.csv
-│   ├── old_requests.csv
-│   ├── israeli_supermarkets.csv
-│   ├── supermarkets.csv
-│   ├── unique_products_with_latest_prices.csv
-│   ├── israeli_food_brands_from_openfoodfacts.csv
-│   └── units.txt
+├── data/                                      # Datasets and stored CSVs for inventory, products, and supermarkets
+│   ├── home_inventory.csv                      # Current user home inventory
+│   ├── old_requests.csv                        # History of user cooking requests, recipes, receipts
+│   ├── productsDB.csv                          # Full list of available products from supermarkets
+│   ├── RecipeNLG_dataset.csv                   # Recipe dataset used for retrieval/generation
+│   ├── supermarketsDB.csv                      # List of supermarkets with metadata
+│   ├── unit_productsDB.csv                     # Mapping of product units for matching/normalization
+│   └── units.txt                               # Available measurement units for quantities
 │
-├── static/
-│   └── style.css
+├── examples/                                  # Evaluation examples for the project
+│   ├── positive/                               # Positive examples where system performs well
+│   └── negative/                               # Negative examples highlighting failures or limitations
 │
-├── templates/
-│   ├── login.html
-│   └── main.html
+├── static/                                    # Static files served by Flask
+│   ├── fonts/                                  # Fonts used in web UI and PDFs
+│   ├── receipts/                               # Generated PDF receipts from orders
+│   └── style.css                               # Main CSS file for styling the web interface
 │
-├── app.py
-├── pipeline.py
-├── requirements.txt
-├── README.md
-└── tokens_count.py
-```
+├── templates/                                 # HTML templates for rendering the web pages
+│   ├── login.html                              # Login page template
+│   └── main.html                               # Main application interface template
+│
+├── tokens/                                    # Tracks LLM token usage
+│   ├── tokens_count.py                         # Utility to update token usage logs
+│   └── total_tokens.txt                        # Log file of total tokens consumed
+│
+├── .env                                       # Environment variables (API keys, config)
+├── .gitignore                                 # Git ignore file to exclude sensitive/unnecessary files
+├── app.py                                     # Flask app – handles routes, user sessions, renders HTML
+├── pipeline.py                                # Orchestrates execution flow between agents
+├── README.md                                  # Project documentation
+└── requirements.txt                           # Python dependencies
+
 
 ---
 

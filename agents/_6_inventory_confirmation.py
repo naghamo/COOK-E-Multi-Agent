@@ -1,5 +1,5 @@
 """
-Agent 6: Inventory Confirmation
+Agent 5: Inventory Confirmation
 -------------------------------
 This agent receives:
 - The recipe ingredient list
@@ -89,10 +89,11 @@ today: {today}
 
 
 
-
+# Create a ChatPromptTemplate from the confirmation prompt
 confirmation_template = ChatPromptTemplate.from_template(confirmation_prompt)
 # parse the JSON part out
 def extract_json_list_from_codeblock(codeblock_str):
+    """Extracts a JSON list from a code block string."""
     match = re.search(r'```json\s*(\[[\s\S]*?\])\s*```', codeblock_str)
     if not match:
         raise ValueError("No JSON list found in code block!")
@@ -109,7 +110,7 @@ def run_confirmation_agent(df_recipe, matched_inventory, parsed_user_input,token
     Returns:
         LLM-generated JSON string of the decision list.
     """
-    # Format inventory for prompt
+    # today's date for expiry checks
     today = datetime.today().strftime('%Y-%m-%d')
     if isinstance(df_recipe, list):
         df_recipe = pd.DataFrame(df_recipe)

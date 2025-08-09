@@ -1,3 +1,10 @@
+"""
+Agent 2: Recipe Retriever
+RAG Agent for Recipe Retrieval
+========================
+This agent retrieves recipes based on user preferences and dietary restrictions.
+It uses a vector database (Qdrant) to find relevant recipes and returns them in a structured format.
+"""
 # ------------------------------------------------------------------
 # 0. Imports & Environment Setup
 # ------------------------------------------------------------------
@@ -296,10 +303,10 @@ def retrieve_recipe(parsed_request, tokens_filename="../tokens/total_tokens_Seva
     """
     with get_openai_callback() as cb:
         result = agent.invoke({"input": parsed_request})
-        print(
-            f"\nTokens | prompt {cb.prompt_tokens}  "
-            f"completion {cb.completion_tokens}  total {cb.total_tokens}"
-        )
+        # print(
+        #     f"\nTokens | prompt {cb.prompt_tokens}  "
+        #     f"completion {cb.completion_tokens}  total {cb.total_tokens}"
+        # )
         update_total_tokens(cb.total_tokens, filename=tokens_filename)
     if isinstance(result, str):
         return json.loads(result)

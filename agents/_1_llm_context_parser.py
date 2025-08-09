@@ -1,3 +1,6 @@
+"""Agent 1: LLM Context Parser
+--------------------------------------
+This agent parses user input to extract structured context for further processing in the pipeline."""
 import json
 import re
 
@@ -51,6 +54,7 @@ User Request: {user_input}
 # Create a ChatPromptTemplate from the context template
 prompt_template = ChatPromptTemplate.from_template(context_template)
 def extract_json_from_llm(text):
+    """Extracts JSON content from the LLM response text."""
     text = text.strip()
     match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
     if match:
@@ -58,14 +62,13 @@ def extract_json_from_llm(text):
     return text
 # Function to generate context from user input
 def parse_context(user_input, tokens_filename="../tokens/total_tokens_Nagham.txt"):
+    """Parses user input to extract structured context using the LLM."""
     formatted_prompt = prompt_template.format(user_input=user_input)
     messages = [HumanMessage(content=formatted_prompt)]
     with get_openai_callback() as cb:
         response = chat(messages=messages)
-        print("Prompt tokens:", cb.prompt_tokens)
-        print("Completion tokens:", cb.completion_tokens)
-        print("Total tokens (this run):", cb.total_tokens)
-        update_total_tokens(cb.total_tokens, filename=tokens_filename)
+
+        update_total_tokens(cb.total_tokens, filename=tokens_filename)# Log the total tokens used
     # Extract JSON from the response content
     json_content = extract_json_from_llm(response.content)
     # Parse the JSON content
@@ -77,7 +80,7 @@ def parse_context(user_input, tokens_filename="../tokens/total_tokens_Nagham.txt
     return parsed_content
 
 
-if __name__ == "__main__":
-    # Example user input
-    inp = "play"
-    print(parse_context(inp))
+# if __name__ == "__main__":
+#     # Example user input
+#     inp = "play"
+#     print(parse_context(inp))

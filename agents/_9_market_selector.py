@@ -1,5 +1,6 @@
 # market_selector.py
 """
+Agent 7: Grocery Market Selector
 GROCERY MARKET SELECTOR - LLM-POWERED BASKET OPTIMIZATION
 
 This module takes matched ingredients from multiple supermarkets and uses GPT-4 to select
@@ -810,7 +811,7 @@ def choose_best_market_llm(
         temp_basket = _validate_llm_selection(temp_basket, required_ingredients)
 
         # Log token usage for monitoring
-        print(f"\nTokens | prompt {cb.prompt_tokens}  completion {cb.completion_tokens}  total {cb.total_tokens}")
+        # print(f"\nTokens | prompt {cb.prompt_tokens}  completion {cb.completion_tokens}  total {cb.total_tokens}")
         update_total_tokens(cb.total_tokens, filename=tokens_filename)
 
     # ===== STEP 4: CONVERT CID REFERENCES TO FULL PRODUCTS =====

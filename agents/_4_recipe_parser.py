@@ -1,3 +1,10 @@
+"""
+Agent 3: Recipe Parser
+--------------------------------------
+This agent parses recipe ingredients using an LLM, scales them based on user request,
+ and returns structured ingredient data in metric units.
+
+"""
 from __future__ import annotations
 
 import os, ast, uuid, json
@@ -120,7 +127,7 @@ def parse_ingredients_llm(lines: List[str],tokens_filename="../tokens/total_toke
             function_call={"name": "ingredient_list"}  # force function call
         )
         # Log token usage
-        print(f"\nTokens | prompt {cb.prompt_tokens}  completion {cb.completion_tokens}  total {cb.total_tokens}")
+        # print(f"\nTokens | prompt {cb.prompt_tokens}  completion {cb.completion_tokens}  total {cb.total_tokens}")
         update_total_tokens(cb.total_tokens, filename=tokens_filename)
 
     # Extract and parse function arguments

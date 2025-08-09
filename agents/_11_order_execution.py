@@ -1,4 +1,10 @@
+"""Agent 8: Order Execution
+--------------------------------------
+This agent generates supermarket-style PDF receipts for the user's order,
+ to simulate a real-world shopping experience and payment presses."""
+
 from fpdf import FPDF
+
 import os
 import random
 from datetime import datetime

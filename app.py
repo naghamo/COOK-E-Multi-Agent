@@ -1,3 +1,8 @@
+"""
+This is the main Flask application for the recipe management system.
+It handles user authentication, inventory management, recipe requests, and order processing insted of the terminal.
+It uses a pipeline of agents to process user requests, confirm inventory, and execute orders.
+"""
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -69,7 +74,7 @@ def load_inventory():
             return pd.read_csv(INVENTORY_CSV).to_dict(orient='records')
         else:
             # If file is empty, return empty inventory with columns
-            print("Inventory file is empty, returning default inventory.")
+            # print("Inventory file is empty, returning default inventory.")
             return [{"name": "", "quantity": 0, "unit": "units", "expiry": ""}]
 
     # Default inventory if file not found
@@ -169,7 +174,7 @@ def confirm_ingredient():
     user_text = session.get('last_user_text', '')  # How you save user input
     recipe = session.get('last_recipe', {})        # How you save recipe object
 
-    # 1. Get confirmed ingredient info from form
+    # 1. Get confirmed ingredient info from the form
     confirmed_ingredients = []
     i = 0
     while True:
@@ -185,7 +190,7 @@ def confirm_ingredient():
                 "to_buy_unit": to_buy_unit
             })
         i += 1
-    print(confirmed_ingredients)
+    # print(confirmed_ingredients)
 
     # 2. Check if everything is at home
 
@@ -226,7 +231,7 @@ def confirm_ingredient():
     # 3. Otherwise, proceed with purchase pipeline
     result,context = run_pipeline_to_order_confirmation(confirmed_ingredients, tokens_filename="tokens/total_tokens.txt")
     session['pending_stores'] = result.get('stores', {})
-    print(result)
+    # print(result)
     if 'error' in result or result.get("not_feasible"):
         # Handle case where no feasible order/cart could be made
         return render_template(
@@ -239,13 +244,9 @@ def confirm_ingredient():
             user_input=user_text,
             request=False,
         )
-    print(context)
-    print( result['total_payment'])
-    print(context['budget'])
-    print(context['budget'] is not None)
-    print(result['total_payment']>context['budget'])
+    # if the total payment exceeds the budget, show a warning message
     if context['budget'] is not None and result['total_payment']>context['budget']:
-        print('hii')
+
         return render_template(
             'main.html',
             user=session['user'],
@@ -287,9 +288,7 @@ def confirm_order():
     recipe_directions = session.get('last_recipe_directions', [])
     pending_stores = session.get('pending_stores', {})  # dict we rendered in payment step
 
-    print("\n--- Incoming form data to /confirm_order ---")
-    pprint.pprint(dict(request.form))
-    print("--- End of form data ---\n")
+
 
     # 1) Delivery choices (per store)
     delivery_choices = {

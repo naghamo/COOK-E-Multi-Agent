@@ -1,35 +1,28 @@
-# agents_pipeline.py
 
 """
 COOK·E Full Pipeline Runner
 --------------------------
 This file defines the pipeline orchestration logic for your COOK·E project.
 Each agent is responsible for a single, clear task. The pipeline is split into logical blocks
-to enable both full runs and partial runs (for debugging or stepwise user interaction).
-
+to match the pipline with the web each bloack start for the end point of the brev block and ends with a confirmation need from the user.
 Agent mapping (by order & responsibility):
- _1_llm_context_parser.py         --> parse_context
- 2_recipe_retriever.py           --> retrieve_recipe
- 3_cart_delivery_validator.py    --> validate_cart
- 4_recipe_parser.py              --> parse_recipe
- 5_Inventory Matcher.py          --> run_matcher_agent
- 6_inventory_confirmation.py     --> run_confirmation_agent
- 7_inventory_filter.py           --> run_inventory_filter_agent
- 8_product_matcher.py            --> match_products
- 9_market_selector.py            --> select_market
-10_order_confirmation.py         --> confirm_order
-11_order_execution.py            --> execute_order
+1. LLM Context Parser: Parses user input to extract structured context.
+2. Recipe Retriever: Retrieves a recipe based on the parsed context.
+3. Recipe Parser: Parses the recipe to build a scaled ingredient list.
+4. Inventory Matcher: Matches the ingredient list with the home inventory.
+5. Inventory Confirmation: Confirms which ingredients need to be bought.
+6. product Matcher: Matches products from different stores.
+7. Market Selector: Selects the best market based on product availability and prices.
+8. Order Execution: Finalizes the order and generates PDF receipts.
 """
 import pandas as pd
 # --- Import all agent runners  ---
 
 from agents._1_llm_context_parser import parse_context
 from agents._2_recipe_retriever import retrieve_recipe
-# # from agents._3_cart_delivery_validator import validate_cart
 from agents._4_recipe_parser import build_scaled_ingredient_list
 from agents._5_Inventory_Matcher import run_matcher_agent
 from agents._6_inventory_confirmation import run_confirmation_agent
-from agents._7_inventory_filter import run_inventory_filter_agent
 from agents._8_product_matcher import match_all_stores
 from agents._9_market_selector import choose_best_market_llm
 from agents._11_order_execution import finalize_order_generate_pdfs
@@ -40,6 +33,7 @@ import asyncio
 from pydantic import BaseModel
 
 def _to_dict(x):
+    """Converts a Pydantic model or object to a dictionary."""
     if isinstance(x, BaseModel):
         # pydantic v2
         try:
@@ -70,7 +64,7 @@ def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/to
             return {"error": f"No feasible recipe found for the given context,{recipe['reason']}"}
         #3. Parse recipe ingredients
         ingredients = build_scaled_ingredient_list(context,recipe, tokens_filename=tokens_filename)
-        print(f"Parsed ingredients: {ingredients}")
+        # print(f"Parsed ingredients: {ingredients}")
         #4. Run inventory matcher agent
         matched_inventory = run_matcher_agent(ingredients, df_inventory='data/home_inventory.csv', tokens_filename=tokens_filename)
         #5. Run confirmation agent
@@ -82,13 +76,13 @@ def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/to
             "matched_inventory": matched_inventory,
             "confirmation_json": confirmation_json,
         }
-def run_pipeline_to_order_confirmation(ingredents, tokens_filename="tokens/total_tokens.txt"):
+def run_pipeline_to_order_confirmation(ingredients, tokens_filename="tokens/total_tokens.txt"):
     '''runs the pipline from first inventory confirmation to order execution.'''
     global global_context
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         #6. choose products from stores
-        products =asyncio.run( match_all_stores(ingredents, tokens_filename=tokens_filename))
+        products =asyncio.run(match_all_stores(ingredients, tokens_filename=tokens_filename))
         # 7. Select best market based on products
         best_market = choose_best_market_llm(products,global_context, tokens_filename=tokens_filename)
         best_market = _to_dict(best_market)
@@ -122,34 +116,34 @@ def run_pipeline_to_order_execution(stores_dict, recipe_title, delivery_choices,
 
 
 
-
-# --- Usage Example ---
-if __name__ == "__main__":
-    # user_text = "Vegetarian lasagna for 6 people, no mushrooms, under 80 NIS, delivery"
-    #
-    # result=run_pipeline_to_inventory_confirmation(user_text,tokens_filename="tokens/total_tokens_Nagham.txt")
-    #secound part of the pipeline
-    global_context = {
-        "food_name": "Vegetarian lasagna",
-        "people": 4,
-        "delivery": "delivery",
-        "special_requests": "no mushrooms",
-        "budget": 125,
-        "raw_text": "Vegetarian lasagna for 4 people, no mushrooms, under 80 NIS, no delivery",
-        "extra_fields": {},
-        "error": None
-    }
-
-    ingredient = [
-        {'name': 'olive oil', 'to_buy_min': 50, 'to_buy_unit': 'ml'},
-        {'name': 'tomatoes', 'to_buy_min': 300, 'to_buy_unit': 'gr'},
-        {'name': 'cheddar', 'to_buy_min': 250, 'to_buy_unit': 'gr'},
-        {'name': 'salt', 'to_buy_min': 1, 'to_buy_unit': 'teaspoons'},
-        {'name': 'garlic', 'to_buy_min': 3, 'to_buy_unit': 'cloves'},
-        {'name': 'onion', 'to_buy_min': 5, 'to_buy_unit': 'units'},
-        {"name": "tomato sauce", "to_buy_min": 500, "to_buy_unit": "milliliter"}
-        # {'name': 'bread', 'to_buy_min': 1, 'to_buy_unit': 'loaf'},
-        # {'name': 'milk', 'to_buy_min': 1, 'to_buy_unit': 'liter'},
-    ]
-    print(run_pipeline_to_order_confirmation(ingredient, tokens_filename="tokens/total_tokens.txt"))
-    # print(result)
+#
+# # --- Usage Example ---
+# if __name__ == "__main__":
+#     # user_text = "Vegetarian lasagna for 6 people, no mushrooms, under 80 NIS, delivery"
+#     #
+#     # result=run_pipeline_to_inventory_confirmation(user_text,tokens_filename="tokens/total_tokens_Nagham.txt")
+#     #secound part of the pipeline
+#     global_context = {
+#         "food_name": "Vegetarian lasagna",
+#         "people": 4,
+#         "delivery": "delivery",
+#         "special_requests": "no mushrooms",
+#         "budget": 125,
+#         "raw_text": "Vegetarian lasagna for 4 people, no mushrooms, under 80 NIS, no delivery",
+#         "extra_fields": {},
+#         "error": None
+#     }
+#
+#     ingredient = [
+#         {'name': 'olive oil', 'to_buy_min': 50, 'to_buy_unit': 'ml'},
+#         {'name': 'tomatoes', 'to_buy_min': 300, 'to_buy_unit': 'gr'},
+#         {'name': 'cheddar', 'to_buy_min': 250, 'to_buy_unit': 'gr'},
+#         {'name': 'salt', 'to_buy_min': 1, 'to_buy_unit': 'teaspoons'},
+#         {'name': 'garlic', 'to_buy_min': 3, 'to_buy_unit': 'cloves'},
+#         {'name': 'onion', 'to_buy_min': 5, 'to_buy_unit': 'units'},
+#         {"name": "tomato sauce", "to_buy_min": 500, "to_buy_unit": "milliliter"}
+#         # {'name': 'bread', 'to_buy_min': 1, 'to_buy_unit': 'loaf'},
+#         # {'name': 'milk', 'to_buy_min': 1, 'to_buy_unit': 'liter'},
+#     ]
+#     print(run_pipeline_to_order_confirmation(ingredient, tokens_filename="tokens/total_tokens.txt"))
+#     # print(result)

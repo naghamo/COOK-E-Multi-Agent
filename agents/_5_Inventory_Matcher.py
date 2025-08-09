@@ -1,5 +1,5 @@
 """
-Agent 5: Inventory Matcher
+Agent 4: Inventory Matcher
 --------------------------
 This agent matches inventory items at home to recipe ingredients, in batches,
 by name (case-insensitive, partial matches allowed).
@@ -64,6 +64,11 @@ inventory_batch:
 
 matcher_template = ChatPromptTemplate.from_template(matcher_prompt)
 def extract_json_from_llm(text):
+    """
+Extracts JSON from the LLM response text.
+    :param text:
+    :return:
+    """
     text = text.strip()
     match = re.search(r"```json\s*(.*?)\s*```", text, re.DOTALL | re.IGNORECASE)
     if match:
@@ -79,8 +84,11 @@ def run_matcher_agent(df_recipe, df_inventory='../data/home_inventory.csv', batc
     df_inventory=pd.read_csv(df_inventory)
     recipe_str = df_recipe.to_string(index=False)
     # Split inventory to batches to save tokens/cost.
+    #for more accurate results, use smaller batches.
+    #the batches loop with llm gives more accurate and responsible results.
     inventory_batches = [df_inventory.iloc[i:i+batch_size] for i in range(0, len(df_inventory), batch_size)]
-
+    # If the last batch is smaller than batch_size, it will still be processed.
+    #loop through each batch and match it to the recipe
     for batch in inventory_batches:
         prompt = matcher_template.format_messages(
             df_recipe=recipe_str,

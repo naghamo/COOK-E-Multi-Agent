@@ -1,4 +1,14 @@
+"""Agent 6: Product Matcher
+---------------------------------------------------------------
+This agent matches recipe ingredients to supermarket products,
+in batches, using a GPT model.
+It returns a list of products for each ingredient,
+with details like cid, packs_needed, and discount.
+"""
+
+
 # ---------------------------------------------------------------
+
 # 0. Imports & global data
 # ---------------------------------------------------------------
 from __future__ import annotations
@@ -315,7 +325,7 @@ def gpt_pick_for_batch(
             function_call={"name": "ingredient_list"}
         )
 
-        print(f"\nTokens | prompt {cb.prompt_tokens}  completion {cb.completion_tokens}  total {cb.total_tokens}")
+        # print(f"\nTokens | prompt {cb.prompt_tokens}  completion {cb.completion_tokens}  total {cb.total_tokens}")
         update_total_tokens(cb.total_tokens, filename=tokens_filename)
 
     # ---------- parse GPT output ----------
