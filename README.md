@@ -34,15 +34,12 @@ COOK-E_Agent/
 ├── agents/                                  # All AI agents, each responsible for a pipeline step
 │   ├── _1_llm_context_parser.py              # Parses user free-text into structured JSON (dish, servings, budget, etc.)
 │   ├── _2_recipe_retriever.py                # Retrieves or generates the best-matching recipe and validates it
-│   ├── _3_cart_delivery_validator.py         # (Legacy) Delivery feasibility check – now merged into market_selector
-│   ├── _4_recipe_parser.py                    # Converts recipe text into structured ingredient list with quantities
-│   ├── _5_Inventory_Matcher.py                # Matches recipe ingredients to the user's home inventory
-│   ├── _6_inventory_confirmation.py           # Creates confirmation table for user to approve required purchases
-│   ├── _7_inventory_filter.py                  # Optional ingredient filtering (mostly handled in confirmation step)
-│   ├── _8_product_matcher.py                   # Maps ingredients to real supermarket products
-│   ├── _9_market_selector.py                   # Selects best store(s) based on price, availability, delivery, promotions
-│   ├── _10_order_confirmation.py               # Displays the payment summary for user review before order placement
-│   ├── _11_order_execution.py                   # Simulates payment, updates inventory, generates PDF receipts
+│   ├── _3_recipe_parser.py                    # Converts recipe text into structured ingredient list with quantities
+│   ├── _4_Inventory_Matcher.py                # Matches recipe ingredients to the user's home inventory
+│   ├── _5_inventory_confirmation.py           # Creates confirmation table for user to approve required purchases
+│   ├── _6_product_matcher.py                   # Maps ingredients to real supermarket products
+│   ├── _7_market_selector.py                   # Selects best store(s) based on price, availability, delivery, promotions
+│   ├── _8_order_execution.py                   # Simulates payment, updates inventory, generates PDF receipts
 │   └── __init__.py                              # Marks the agents folder as a Python package
 │
 ├── data/                                      # Datasets and stored CSVs for inventory, products, and supermarkets
