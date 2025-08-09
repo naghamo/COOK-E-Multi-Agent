@@ -76,52 +76,107 @@ COOK-E_Agent/
 ├── pipeline.py                                # Orchestrates execution flow between agents
 ├── README.md                                  # Project documentation
 └── requirements.txt                           # Python dependencies
-
-
----
-
-## ⚙️ How It Works
-
-1. **Login:** Secure login (user: TECHNION, pass: 0000).
-2. **Request:** Enter a free-text cooking request (can include preferences, budget, delivery, allergies, brands, etc).
-3. **Pipeline:** Each agent handles a step (input parsing → recipe finding → feasibility → scaling → inventory matching → product matching → store selection → cart validation → confirmation → simulated execution).
-4. **Inventory:** Edit your home inventory in the web interface.
-5. **Results:** See a detailed receipt and recommendations, all tailored to your constraints and inventory.
+```
 
 ---
 
-## 🧠 Agents (Core Modules)
+## 🌐 Using the COOK·E Web App  
 
-* **LLM Context Parser Agent:** Extracts all structured constraints (dish, servings, requests) from raw user text.
-* **Recipe Retriever or Generator Agent:** Finds/generates the best-matching recipe.
-* **Feasibility Checker Agent:** Validates recipe existence for constraints (before product matching).
-* **Recipe Parser Agent:** Converts recipe text to ingredients with correct quantities.
-* **User Ingredient Confirmation Agent:** Cross-checks inventory, proposes items to buy, and requests user confirmation.
-* **Inventory Filter Agent:** Filters the final buy-list by confirmation and inventory.
-* **Product Matcher Agent:** Maps needed ingredients to real supermarket products.
-* **Market Selector Agent:** Optimizes store(s) for cost, delivery, promotions, and preferences.
-* **Cart and Delivery Feasibility Validator Agent:** Checks cart/delivery against all constraints; suggests fixes if needed.
-* **Order Confirmation Agent:** User sees receipt and approves (or edits).
-* **Order Execution Agent:** Simulates checkout, updates inventory, and displays the final recipe.
+The COOK·E web interface allows you to interact with the autonomous cooking assistant easily.  
+Follow these steps to get started:  
 
----
+### 1️⃣ Start the Server  
+Make sure you have installed all dependencies:  
+```bash
+pip install -r requirements.txt
+```
+Then run:  
+```bash
+python app.py
+```
+The server will start locally, usually at:(the link will be in the terminal output) 
 
-## 📊 Data
-
-* **RecipeNLG Dataset:** [Kaggle](https://www.kaggle.com/datasets/paultimothymooney/recipenlg)
-* **Israeli Supermarkets Product Data:** [Kaggle](https://www.kaggle.com/datasets/erlichsefi/israeli-supermarkets-2024)
-* **OpenFoodFacts API** for nutrition/sustainability.
-* **Order/Payment APIs** (simulated).
+[http://localhost:5000](http://localhost:5000)  
 
 ---
 
-## 🔧 Setup
+### 2️⃣ Login  
+On the login screen, enter the default credentials:  
+- **Username:** `TECHNION`  
+- **Password:** `0000`  
 
-1. `pip install -r requirements.txt`
-2. Download required datasets (see `/data/` folder).
-3. Run the app:
-   `python app.py`
-4. Go to [http://localhost:5000](http://localhost:5000), log in with the default user, and start cooking!
+![Login Page](media/login_page.png)  
+
+---
+### There you will see brief description of the COOK·E system.
+### 3️⃣ Create a Cooking Request  
+Type your request in natural language. You can include:  
+- 🍽 **Dish name** (mandatory)  
+- 👥 **Number of servings**  
+- 💰 **Budget**  
+- 🚚 **Delivery / Pickup** preference  
+- 🍃 **Special requests** (e.g., vegan, gluten-free, halal)  
+
+Example:  
+```
+Vegan shakshuka for 4 people, under 50 NIS, delivery
+```
+
+![New Request Form](media/new_request.png)  
+
+---
+
+### 4️⃣ Confirm Ingredients  
+COOK·E will check your home inventory and show you a confirmation table of missing items.  
+You can:  
+- Adjust quantities to buy  
+- Change units  
+- Remove ingredients you don’t want to purchase by putting `0` in the quantity field
+
+![Ingredient Confirmation](media/ingredient_confirmation.png)  
+
+---
+
+### 5️⃣ Review and Pay  
+You’ll see:  
+- 🛒 **Stores and products** chosen for you  
+- 📦 **Delivery options** per store  
+- 💰 **Total price**  
+
+You can:  
+- Remove items to lower cost  
+- Turn off delivery for pickup  
+ 
+
+![Review & Pay](media/review_payment.png)  
+
+---
+
+### 6️⃣ Final Order & Recipe Directions  
+After confirming, COOK·E will:  
+- Simulate payment  
+- Generate PDF receipts  
+- Show you the recipe directions  
+
+You can download receipts and follow the cooking steps right away!  
+
+![Final Recipe](media/final_recipe.png)  
+
+---
+
+### 7️⃣ Manage Inventory & Old Requests  
+From the web interface, you can:  
+- **Edit your home inventory:** Add, edit, or delete items you have at home  
+- **View old requests:** See past recipes, receipts, and directions anytime  
+
+![Inventory Management](media/inventory.png)  
+![Old Requests](media/old_requests.png)  
+
+---
+
+📌 **Tip:** If your budget is too low, COOK·E will suggest the closest and cheapest option available.  
+
+
 
 ---
 
