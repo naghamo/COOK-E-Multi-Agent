@@ -5,6 +5,7 @@ RAG Agent for Recipe Retrieval
 This agent retrieves recipes based on user preferences and dietary restrictions.
 It uses a vector database (Qdrant) to find relevant recipes and returns them in a structured format.
 """
+import copy
 # ------------------------------------------------------------------
 # 0. Imports & Environment Setup
 # ------------------------------------------------------------------
@@ -14,6 +15,10 @@ import ast
 import re
 from typing import Optional, Dict, List, Union
 from dotenv import load_dotenv
+
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module=r"langchain(\.|$)")
+warnings.filterwarnings("ignore", category=FutureWarning, message=r"`encoder_attention_mask` is deprecated")
 
 # Load environment variables from .env
 load_dotenv()
@@ -43,7 +48,7 @@ API_VERSION           = "2023-05-15"
 # Qdrant vector store settings
 QDRANT_URL       = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY   = os.getenv("QDRANT_API_KEY")
-COLLECTION       = "recipes"
+COLLECTION       = "recipes_full"
 
 # Embedding model and retrieval parameters
 EMBED_MODEL      = "BAAI/bge-small-en-v1.5"
@@ -55,7 +60,11 @@ TOP_K            = 3
 # Create an in-process HuggingFace embedding model
 embedder   = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
 # Connect to Qdrant vector database
-client_qdr = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+client_qdr = QdrantClient(url=QDRANT_URL,
+                          api_key=QDRANT_API_KEY,
+                          prefer_grpc=True,
+                          timeout=120,
+                          )
 # Wrap Qdrant as a LangChain vectorstore
 vectorstore = Qdrant(
     client=client_qdr,
@@ -171,16 +180,23 @@ def search_recipes(
         pieces.append(req.get("raw_text", ""))
     query_text = " ".join(pieces).strip()
 
-    # 3. Perform vector search with filter
-    hits = vectorstore.client.search(
-        collection_name=COLLECTION,
-        query_vector=vectorstore._embed_query(query_text),
-        limit=TOP_K,
-        query_filter=build_filter(query_params)
-    )
+    try:
+        # 3. Perform vector search with filter
+        hits = vectorstore.client.query_points(
+            collection_name=COLLECTION,
+            query=vectorstore._embed_query(query_text),
+            limit=TOP_K,
+            query_filter=build_filter(query_params),
+            with_payload=True,
+            with_vectors=False,
+            # search_params={"hnsw_ef": 256, "exact": False}
+        )
 
-    # 4. Return hits as JSON string
-    return json.dumps({"hits": docs_to_json(hits)}, ensure_ascii=False)
+        # 4. Return hits as JSON string
+        return json.dumps({"hits": docs_to_json(hits.points)}, ensure_ascii=False)
+    except Exception as e:
+        print(f"Search error: {e}")
+        return json.dumps({"hits": []}, ensure_ascii=False)
 
 # Wrap as a StructuredTool for the agent
 get_recipes = StructuredTool.from_function(
@@ -201,7 +217,7 @@ planner_llm = AzureChatOpenAI(
     azure_endpoint     = AZURE_ENDPOINT,
     openai_api_version = API_VERSION,
     openai_api_type    = "azure",
-    temperature        = 0.3,
+    temperature        = 0.0,
 )
 
 SYSTEM_PROMPT = SystemMessage(content="""
@@ -211,11 +227,12 @@ Input
 You receive ONE JSON object from an upstream parser agent. 
 
 Your task is to generate a **suitable recipe** that matches the user’s
-preferences.  
+preferences and restrictions (e.g. substituting certain ingredients).  
 • You may alter, add ingredients or make substitutions to satisfy dietary
-  restrictions or other constraints
+  restrictions (for example vegan, keto, ...) or other constraints if they make sense and PRESERVE the desired dish and its quality.
+  For example, if user preferences requires substituting pork with other meat, or using non-dairy products (ONLY if they will work in the recipe)
 • You may adapt a retrieved recipe by **deleting ingredients** that the user forbids 
-(e.g., remove “mushrooms” from a pizza topping list), but only do so when you are confident the change preserves the dish’s quality and users request.  
+(e.g., removing 'mushrooms' from a pizza topping list), but only do so when you are confident the change preserves the dish’s quality and users request.  
 • Document every substitution and change you made in the _notes_ field of your final output.
 
 
@@ -252,7 +269,7 @@ Feasible recipe
   "servings":     int,
   "ingredients":  [str],
   "directions":   [str],
-  "notes":        str   // list EVERY substitution / allergy tweak
+  "notes":        str   // list EVERY substitution / allergy tweak you made to the recipe
 }
 
 Not feasible
@@ -296,13 +313,24 @@ def extract_recipe_dict(agent_response: dict) -> dict:
 # ------------------------------------------------------------------
 # 6. Agent Runner with Token Logging
 # ------------------------------------------------------------------
+def filter_request(data):
+    filtered = copy.deepcopy(data)
+
+    for key in ['delivery', 'budget', 'people']:
+        if key in filtered:
+            del filtered[key]
+
+    return filtered
+
 def retrieve_recipe(parsed_request, tokens_filename="../tokens/total_tokens.txt"):
     """
     Invoke the agent on parsed_request and log token usage.
     Returns the agent's JSON response as a string.
     """
+    filtered_request = filter_request(parsed_request)
+
     with get_openai_callback() as cb:
-        result = agent.invoke({"input": parsed_request})
+        result = agent.invoke({"input": filtered_request})
         # print(
         #     f"\nTokens | prompt {cb.prompt_tokens}  "
         #     f"completion {cb.completion_tokens}  total {cb.total_tokens}"
@@ -326,20 +354,11 @@ if __name__ == "__main__":
         "error": None
     }
 
-    # req2 = {
-    #     "food_name": "Peanut satay noodles",
-    #     "people": 2,
-    #     "special_requests": "no peanuts, must be peanut satay sauce, no substitutions",
-    #     "raw_text": "Peanut satay noodles without peanuts, no substitutions",
-    #     "extra_fields": {},
-    #     "error": None
-    # }
-
     req2 = {
         "food_name": "Peanut satay noodles",
         "people": 2,
         "special_requests": "no peanuts",
-        "raw_text": "Peanut satay noodles without peanuts",
+        "raw_text": "Peanut satay noodles without peanuts, you may change the peanuts to something else",
         "extra_fields": {},
         "error": None
     }
