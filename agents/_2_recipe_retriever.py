@@ -13,7 +13,9 @@ import os
 import json
 import ast
 import re
+import time
 from typing import Optional, Dict, List, Union
+import numpy as np
 from dotenv import load_dotenv
 
 import warnings
@@ -28,14 +30,17 @@ from pydantic import BaseModel, Field
 from langchain_community.chat_models import AzureChatOpenAI
 from langchain.agents import initialize_agent, AgentType
 from langchain.tools import Tool, StructuredTool
+from langchain_core.embeddings import Embeddings
 from langchain.schema import SystemMessage
 from langchain.callbacks.manager import get_openai_callback
-from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Qdrant
 from qdrant_client import QdrantClient, models as qm
 
 # Utility for token logging
 from tokens.tokens_count import update_total_tokens
+
+from openai import AzureOpenAI, RateLimitError
+from langchain_openai import AzureOpenAIEmbeddings
 
 # ------------------------------------------------------------------
 # 1. Configuration Constants
@@ -43,12 +48,13 @@ from tokens.tokens_count import update_total_tokens
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_ENDPOINT        = os.getenv("AZURE_ENDPOINT", "https://096290-oai.openai.azure.com")
 CHAT_DEPLOYMENT       = os.getenv("CHAT_DEPLOYMENT", "team10-gpt4o")
+EMBED_DEPLOYMENT       = os.getenv("EMBED_DEPLOYMENT", "team10-embedding")
 API_VERSION           = "2023-05-15"
 
 # Qdrant vector store settings
 QDRANT_URL       = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY   = os.getenv("QDRANT_API_KEY")
-COLLECTION       = "recipes_full"
+COLLECTION       = "recipes_openai"
 
 # Embedding model and retrieval parameters
 EMBED_MODEL      = "BAAI/bge-small-en-v1.5"
@@ -57,15 +63,28 @@ TOP_K            = 3
 # ------------------------------------------------------------------
 # 2. Embedding & Vector Store Initialization
 # ------------------------------------------------------------------
-# Create an in-process HuggingFace embedding model
-embedder   = HuggingFaceEmbeddings(model_name=EMBED_MODEL)
 # Connect to Qdrant vector database
 client_qdr = QdrantClient(url=QDRANT_URL,
                           api_key=QDRANT_API_KEY,
                           prefer_grpc=True,
                           timeout=120,
                           )
-# Wrap Qdrant as a LangChain vectorstore
+
+# Azure client for embeddings
+client_azr = AzureOpenAI(
+    api_key=AZURE_OPENAI_API_KEY,
+    api_version=API_VERSION,
+    azure_endpoint=AZURE_ENDPOINT
+)
+
+# We'll use our wrapper, but it still requires embedder
+embedder = AzureOpenAIEmbeddings(
+    azure_deployment=EMBED_DEPLOYMENT,
+    openai_api_version=API_VERSION,
+    azure_endpoint=AZURE_ENDPOINT,
+    api_key=AZURE_OPENAI_API_KEY,
+)
+
 vectorstore = Qdrant(
     client=client_qdr,
     collection_name=COLLECTION,
@@ -73,6 +92,8 @@ vectorstore = Qdrant(
     content_payload_key="title",
     metadata_payload_key="metadata",
 )
+
+
 
 # ------------------------------------------------------------------
 # 3. Helper Functions for Filtering & Formatting
@@ -151,6 +172,96 @@ class RecipeArgs(BaseModel):
         None, description="{'include':[str], 'exclude':[str], 'match_mode':'all'|'any'}"
     )
 
+def get_embeddings_with_retry(texts, max_retries=3, filename='../tokens/total_tokens_embed.txt'):
+    """Get embeddings/batch tokens with retry logic for rate limits"""
+    if type(texts) is not list:
+        texts = [texts]
+
+    for retry in range(max_retries):
+        try:
+            response = client_azr.embeddings.create(
+                input=texts,
+                model=EMBED_DEPLOYMENT
+            )
+
+            vectors = [np.array(embedding.embedding).tolist() for embedding in response.data]
+            batch_tokens = response.usage.total_tokens
+            update_total_tokens(batch_tokens, filename)
+            # print(f'Counted {batch_tokens} tokens!')
+
+            if len(vectors) == 1:
+                return vectors[0]
+
+            return vectors
+        except RateLimitError as e:
+            if retry < max_retries - 1:
+                wait_time = (2 ** retry) * 5  # 5, 10, 20 seconds
+                print(f"Rate limit hit, waiting {wait_time}s...")
+                time.sleep(wait_time)
+            else:
+                print(f"Max retries reached. Error: {e}")
+                raise
+        except Exception as e:
+            print(f"Error on retry {retry + 1}: {e}")
+            if retry < max_retries - 1:
+                time.sleep(5)
+            else:
+                raise
+
+
+def search_with_token_counting(query_text, query_params, max_retries=2):
+    """Search with retry logic using your existing embedding function"""
+    for attempt in range(max_retries + 1):
+        try:
+            # Use your existing function to get embedding with token counting
+            query_embedding = get_embeddings_with_retry(
+                query_text,
+                max_retries=3,
+                filename='../tokens/total_tokens_embed.txt'
+            )
+
+            # Perform search using the embedding
+            hits = vectorstore.client.query_points(
+                collection_name=COLLECTION,
+                query=query_embedding,  # Use your embedding directly
+                limit=TOP_K,
+                query_filter=build_filter(query_params),
+                with_payload=True,
+                with_vectors=False,
+            )
+
+            # Return results - tokens already counted in get_embeddings_with_retry
+            return json.dumps({"hits": docs_to_json(hits.points)}, ensure_ascii=False)
+
+        except Exception as e:
+            print(f"Search error (attempt {attempt + 1}/{max_retries + 1}): {e}")
+            if attempt < max_retries:
+                time.sleep((2 ** attempt))
+            else:
+                break
+
+    return json.dumps({"hits": []}, ensure_ascii=False)
+
+
+def format_hits_for_llm(hits_json):
+    """Format search results in a more LLM-friendly way"""
+    data = json.loads(hits_json)
+
+    formatted_results = []
+    for i, hit in enumerate(data["hits"], 1):
+        payload = hit["payload"]
+        formatted_recipe = f"""
+        Recipe {i}: {payload["title"]} (score: {hit["score"]:.2f})
+        'ingredients': {payload["ingredients"]}
+        'directions'': {payload["directions"]}
+        'keywords': {payload["keywords"]}
+        'recipe_id': {payload["recipe_id"]}
+        ---
+        """
+
+        formatted_results.append(formatted_recipe)
+
+    return "\n".join(formatted_results)
 
 def search_recipes(
     request_json: Union[Dict, str],
@@ -180,23 +291,8 @@ def search_recipes(
         pieces.append(req.get("raw_text", ""))
     query_text = " ".join(pieces).strip()
 
-    try:
-        # 3. Perform vector search with filter
-        hits = vectorstore.client.query_points(
-            collection_name=COLLECTION,
-            query=vectorstore._embed_query(query_text),
-            limit=TOP_K,
-            query_filter=build_filter(query_params),
-            with_payload=True,
-            with_vectors=False,
-            # search_params={"hnsw_ef": 256, "exact": False}
-        )
-
-        # 4. Return hits as JSON string
-        return json.dumps({"hits": docs_to_json(hits.points)}, ensure_ascii=False)
-    except Exception as e:
-        print(f"Search error: {e}")
-        return json.dumps({"hits": []}, ensure_ascii=False)
+    hits_json = search_with_token_counting(query_text=query_text, query_params=query_params)
+    return format_hits_for_llm(hits_json)
 
 # Wrap as a StructuredTool for the agent
 get_recipes = StructuredTool.from_function(
@@ -226,17 +322,43 @@ You are **COOK‑E**, an expert culinary assistant.
 Input  
 You receive ONE JSON object from an upstream parser agent. 
 
-Your task is to generate a **suitable recipe** that matches the user’s
-preferences and restrictions (e.g. substituting certain ingredients).  
-• You may alter, add ingredients or make substitutions to satisfy dietary
-  restrictions (for example vegan, keto, ...) or other constraints if they make sense and PRESERVE the desired dish and its quality.
-  For example, if user preferences requires substituting pork with other meat, or using non-dairy products (ONLY if they will work in the recipe)
-• You may adapt a retrieved recipe by **deleting ingredients** that the user forbids 
-(e.g., removing 'mushrooms' from a pizza topping list), but only do so when you are confident the change preserves the dish’s quality and users request.  
-• Document every substitution and change you made in the _notes_ field of your final output.
+Your task is to generate a **suitable recipe** that matches the user's preferences and restrictions by making thoughtful modifications to retrieved recipes.
 
+**MODIFICATION GUIDELINES:**
 
-Ignore logistics fields entirely:
+- **Ingredient Substitutions**: You may substitute ingredients to accommodate:
+  - Dietary restrictions (vegan, vegetarian, keto, gluten-free, etc.)
+  - Religious requirements (kosher, halal)
+  - Allergies and intolerances (nuts, dairy, shellfish, etc.)
+  - Any preferences listed in the request json (in raw_text too)
+
+- **Substitution Examples**:
+  - Kosher/Halal: Replace pork with beef, chicken, or turkey
+  - Vegan: Use plant milk instead of dairy, aquafaba instead of eggs
+  - Nut allergies: Replace peanuts with sunflower seeds or pumpkin seeds
+  - Gluten-free: Use almond flour instead of wheat flour
+  - Keto: Replace sugar with stevia, use cauliflower instead of rice
+
+- **Ingredient Removal**: You may remove ingredients that the user specifically forbids (e.g., "no mushrooms"), but ONLY when:
+  - The user explicitly requests the removal
+  - You are confident the removal won't compromise the dish's core identity or quality
+  - The ingredient isn't structurally essential (e.g., don't remove flour from bread)
+
+- **Quality Preservation**: All modifications must:
+  - Maintain the dish's fundamental character and appeal
+  - Preserve cooking techniques and timing when possible
+  - Use substitutions that work functionally in the recipe
+  - Consider flavor balance and texture
+
+- **Documentation**: Record ALL changes in the *notes* field, including:
+  - What was substituted and why
+  - What was removed and the reason
+  - Any cooking adjustments needed due to changes
+  - Warnings about texture or flavor differences
+
+**IMPORTANT**: Only make modifications that are explicitly requested or clearly necessary for stated restrictions. Don't make unnecessary changes to perfectly suitable recipes.
+
+Ignore logistics fields entirely, like:
 • delivery / pickup  
 • budget / price ceilings  
 • people / servings counts  
@@ -346,10 +468,10 @@ def retrieve_recipe(parsed_request, tokens_filename="../tokens/total_tokens.txt"
 if __name__ == "__main__":
     # Example requests to test the pipeline
     req1 = {
-        "food_name": "Vegan pizza",
+        "food_name": "Vegan creamy pasta",
         "people": 5,
         "special_requests": "no mushrooms",
-        "raw_text": "Vegan pizza for 5 under 40₪, no mushrooms",
+        "raw_text": "Hello, I want a Vegan creamy pasta for 5 people under 40₪, no mushrooms",
         "extra_fields": {},
         "error": None
     }
@@ -358,15 +480,15 @@ if __name__ == "__main__":
         "food_name": "Peanut satay noodles",
         "people": 2,
         "special_requests": "no peanuts",
-        "raw_text": "Peanut satay noodles without peanuts, you may change the peanuts to something else",
+        "raw_text": "Peanut satay noodles without peanuts, You may switch the peanuts with something else instead",
         "extra_fields": {},
         "error": None
     }
 
-    # print("\n=== Request 1 ===")
-    # print(json.dumps(req1, indent=2, ensure_ascii=False))
-    # print("\nAgent response:\n", retrieve_recipe(req1))
+    print("\n=== Request 1 ===")
+    print(json.dumps(req1, indent=2, ensure_ascii=False))
+    print("\nAgent response:\n", retrieve_recipe(req1))
 
-    print("\n=== Request 2 ===")
-    print(json.dumps(req2, indent=2, ensure_ascii=False))
-    print("\nAgent response:\n", retrieve_recipe(req2))
+    # print("\n=== Request 2 ===")
+    # print(json.dumps(req2, indent=2, ensure_ascii=False))
+    # print("\nAgent response:\n", retrieve_recipe(req2))
