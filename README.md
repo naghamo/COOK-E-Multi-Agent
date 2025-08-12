@@ -92,7 +92,7 @@ Then run:
 ```bash
 python app.py
 ```
-The server will start locally, usually at:(the link will be in the terminal output) 
+The server will start locally, usually at:(the link will be in the terminal output .e.g Running on http://127.0.0.1:5000) 
 
 [http://localhost:5000](http://localhost:5000)  
 

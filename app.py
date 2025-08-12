@@ -246,7 +246,7 @@ def confirm_ingredient():
 
     # 3. Otherwise, proceed with purchase pipeline
     result = run_pipeline_to_order_confirmation(confirmed_ingredients, tokens_filename="tokens/total_tokens.txt")
-
+    session['pending_stores'] = result.get('stores', {})
 
     # print(result)
     if 'error' in result or result.get("not_feasible"):
@@ -307,10 +307,10 @@ def confirm_order():
     old_requests = load_old_requests()
 
     # Pull what we saved earlier
-    recipe_title = session.get('last_recipe_title', '')
+    recipe_title = session.get('last_recipe_title', [])
     recipe_directions = session.get('last_recipe_directions', [])
     pending_stores = session.get('pending_stores', {})  # dict we rendered in payment step
-
+    print("Pending stores:", pending_stores)
 
 
     # 1) Delivery choices (per store)
