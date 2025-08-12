@@ -12,7 +12,11 @@ with details like cid, packs_needed, and discount.
 # 0. Imports & global data
 # ---------------------------------------------------------------
 from __future__ import annotations
-
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+from langchain_core._api import LangChainDeprecationWarning
+warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
 import os, asyncio, concurrent.futures as cf, json, re, pint
 from dataclasses import dataclass, asdict
 from typing import List

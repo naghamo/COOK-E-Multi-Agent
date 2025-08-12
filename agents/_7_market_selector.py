@@ -23,7 +23,11 @@ Given the {store_id: {store_info, desired_ingredients}} structure produced
 by match_all_stores(), choose the optimal basket and return canonical JSON.
 """
 from __future__ import annotations
-
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+from langchain_core._api import LangChainDeprecationWarning
+warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
 import json, math, os
 from typing import Dict, List, Tuple, Any
 from collections import defaultdict

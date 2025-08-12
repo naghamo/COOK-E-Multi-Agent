@@ -21,7 +21,7 @@
             <span class="nav-user">👤 {{ user }}</span>
         </div>
     </nav>
-
+<div class="content-wrapper">
     <main>
         <!-- GLOBAL ERROR DISPLAY -->
         {% if error %}
@@ -213,21 +213,6 @@
     </ul>
   {% endif %}
 
-  <button type="button"
-          class="secondary-btn toggle-btn"
-          data-target="#final-directions"
-          aria-expanded="false">
-     directions
-  </button>
-
-  <div id="final-directions" class="collapsible" style="display:none;margin-top:10px;">
-    <h3>Recipe Directions</h3>
-    <ol>
-      {% for step in recipe_directions %}
-        <li>{{ step }}</li>
-      {% endfor %}
-    </ol>
-  </div>
 </section>
 {% endif %}
 
@@ -373,6 +358,24 @@
 {% endif %}
 
     </main>
+    {% if recipe_title %}
+    <aside class="recipe-sidebar card">
+        <h2>{{ recipe_title }}</h2>
+        <h3>Ingredients:</h3>
+        <ul>
+            {% for ing in recipe_ingredients %}
+                <li>{{ ing }}</li>
+            {% endfor %}
+        </ul>
+        <h3>Directions:</h3>
+        <ol>
+            {% for step in recipe_directions %}
+                <li>{{ step }}</li>
+            {% endfor %}
+        </ol>
+    </aside>
+    {% endif %}
+</div>
 <script>
   const userText = `{{ user_input | e }}`;
   let i = 0;

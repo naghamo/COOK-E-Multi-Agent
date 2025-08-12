@@ -14,7 +14,11 @@ import ast
 import re
 from typing import Optional, Dict, List, Union
 from dotenv import load_dotenv
-
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+from langchain_core._api import LangChainDeprecationWarning
+warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
 # Load environment variables from .env
 load_dotenv()
 

@@ -10,7 +10,11 @@ from __future__ import annotations
 import os, ast, uuid, json
 from typing import List, Dict, Any
 from typing_extensions import TypedDict, Optional
-
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+from langchain_core._api import LangChainDeprecationWarning
+warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
 from langchain_community.callbacks import get_openai_callback
 from langchain_openai import AzureChatOpenAI
 from langchain.prompts import ChatPromptTemplate

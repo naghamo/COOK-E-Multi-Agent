@@ -17,6 +17,21 @@ Agent mapping (by order & responsibility):
 """
 import pandas as pd
 # --- Import all agent runners  ---
+import warnings
+import importlib
+
+# Dynamically import LangChainDeprecationWarning without importing the rest of LangChain yet
+LangChainDeprecationWarning = getattr(
+    importlib.import_module("langchain_core._api"),
+    "LangChainDeprecationWarning"
+)
+
+# Hide LangChain deprecation warnings
+warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
+
+# Optionally hide all deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 
 from agents._1_llm_context_parser import parse_context
 from agents._2_recipe_retriever import retrieve_recipe
@@ -50,69 +65,66 @@ def run_pipeline_to_inventory_confirmation(user_text, tokens_filename="tokens/to
     Runs pipeline up to the inventory confirmation stage (before user confirmation).
     Returns parsed context, recipe, ingredients, and the list for confirmation.
     """
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        # 1. Parse user context
-        context = parse_context(user_text, tokens_filename=tokens_filename)
-        if context['error']: # If there is an error in context parsing, return it
-            return {"error": f"{context['error']}"}
-        global global_context
-        global_context = context # Store context globally for later use
-        # 2. Retrieve recipe based on context
-        recipe = retrieve_recipe(context, tokens_filename=tokens_filename)
-        if not recipe['feasible']:# If no feasible recipe is found, return an error
-            return {"error": f"No feasible recipe found for the given context,{recipe['reason']}"}
-        #3. Parse recipe ingredients
-        ingredients = build_scaled_ingredient_list(context,recipe, tokens_filename=tokens_filename)
-        # print(f"Parsed ingredients: {ingredients}")
-        #4. Run inventory matcher agent
-        matched_inventory = run_matcher_agent(ingredients, df_inventory='data/home_inventory.csv', tokens_filename=tokens_filename)
-        #5. Run confirmation agent
-        confirmation_json = run_confirmation_agent(ingredients, matched_inventory, context, tokens_filename=tokens_filename)
-        return {
-            "context": context,
-            "recipe": recipe,
-            "ingredients": ingredients,
-            "matched_inventory": matched_inventory,
-            "confirmation_json": confirmation_json,
-        }
+
+    # 1. Parse user context
+    context = parse_context(user_text, tokens_filename=tokens_filename)
+    if context['error']: # If there is an error in context parsing, return it
+        return {"error": f"{context['error']}"}
+    global global_context
+    global_context = context # Store context globally for later use
+    # 2. Retrieve recipe based on context
+    recipe = retrieve_recipe(context, tokens_filename=tokens_filename)
+    if not recipe['feasible']:# If no feasible recipe is found, return an error
+        return {"error": f"No feasible recipe found for the given context,{recipe['reason']}"}
+    #3. Parse recipe ingredients
+    ingredients = build_scaled_ingredient_list(context,recipe, tokens_filename=tokens_filename)
+    # print(f"Parsed ingredients: {ingredients}")
+    #4. Run inventory matcher agent
+    matched_inventory = run_matcher_agent(ingredients, df_inventory='data/home_inventory.csv', tokens_filename=tokens_filename)
+    #5. Run confirmation agent
+    confirmation_json = run_confirmation_agent(ingredients, matched_inventory, context, tokens_filename=tokens_filename)
+    return {
+        "context": context,
+        "recipe": recipe,
+        "ingredients": ingredients,
+        "matched_inventory": matched_inventory,
+        "confirmation_json": confirmation_json,
+    }
 def run_pipeline_to_order_confirmation(ingredients, tokens_filename="tokens/total_tokens.txt"):
     '''runs the pipline from first inventory confirmation to order execution.'''
     global global_context
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        #6. choose products from stores
-        products =asyncio.run(match_all_stores(ingredients, tokens_filename=tokens_filename))
-        # 7. Select best market based on products
-        best_market = choose_best_market_llm(products,global_context, tokens_filename=tokens_filename)
-        best_market = _to_dict(best_market)
 
-        # Works whether best_market is dict or object
-        feasible = best_market.get("feasible") if isinstance(best_market, dict) else getattr(best_market, "feasible",
-                                                                                             None)
-        if feasible is False:
-            reason = best_market.get("reason") if isinstance(best_market, dict) else getattr(best_market, "reason", "")
-            suggestions = best_market.get("suggestions") if isinstance(best_market, dict) else getattr(best_market,
-                                                                                                       "suggestions",
-                                                                                                       [])
-            return {
-                "error": f" {reason}, {suggestions}"
-            },None
+    #6. choose products from stores
+    products =asyncio.run(match_all_stores(ingredients, tokens_filename=tokens_filename))
+    # 7. Select best market based on products
+    best_market = choose_best_market_llm(products,global_context, tokens_filename=tokens_filename)
+    best_market = _to_dict(best_market)
 
-        return best_market,global_context
+    # Works whether best_market is dict or object
+    feasible = best_market.get("feasible") if isinstance(best_market, dict) else getattr(best_market, "feasible",
+                                                                                         None)
+    if feasible is False:
+        reason = best_market.get("reason") if isinstance(best_market, dict) else getattr(best_market, "reason", "")
+        suggestions = best_market.get("suggestions") if isinstance(best_market, dict) else getattr(best_market,
+                                                                                                   "suggestions",
+                                                                                                   [])
+        return {
+            "error": f" {reason}, {suggestions}"
+        }
+
+    return best_market
 def run_pipeline_to_order_execution(stores_dict, recipe_title, delivery_choices, user_name, pdf_dir='static/receipts'):
     """
     Runs the final part of the pipeline to generate PDF receipts for the order."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        pdf_filenames = finalize_order_generate_pdfs(
-            stores_dict=stores_dict,
-            recipe_title=recipe_title,
-            delivery_choices=delivery_choices,
-            user_name=user_name,
-            pdf_dir=pdf_dir
-        )
-        return pdf_filenames
+
+    pdf_filenames = finalize_order_generate_pdfs(
+        stores_dict=stores_dict,
+        recipe_title=recipe_title,
+        delivery_choices=delivery_choices,
+        user_name=user_name,
+        pdf_dir=pdf_dir
+    )
+    return pdf_filenames
 
 
 

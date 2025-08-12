@@ -7,7 +7,11 @@ Returns a list of inventory items relevant for the recipe.
 """
 import json
 import re
-
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+from langchain_core._api import LangChainDeprecationWarning
+warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
 import pandas as pd
 from langchain_community.callbacks import get_openai_callback
 from langchain_community.chat_models import AzureChatOpenAI

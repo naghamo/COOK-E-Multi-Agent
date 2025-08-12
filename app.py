@@ -4,6 +4,18 @@ It handles user authentication, inventory management, recipe requests, and order
 It uses a pipeline of agents to process user requests, confirm inventory, and execute orders.
 """
 import warnings
+import importlib
+
+# Dynamically import LangChainDeprecationWarning without importing the rest of LangChain yet
+LangChainDeprecationWarning = getattr(
+    importlib.import_module("langchain_core._api"),
+    "LangChainDeprecationWarning"
+)
+
+# Hide LangChain deprecation warnings
+warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
+
+# Optionally hide all deprecation warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -109,7 +121,7 @@ def submit_request():
     old_requests = load_old_requests()
     session['last_user_text'] = user_text
     session['last_recipe'] = result.get('recipe', {})
-
+    session['context'] = result.get('context', {})
     if 'error' in result:
         # Show error to user in main.html
         return render_template(
@@ -138,9 +150,9 @@ def submit_request():
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     save_old_request(request_data)
-    session['last_recipe_title'] = result['recipe'].get('title', ''),
+    session['last_recipe_title'] = result['recipe'].get('title', []),
     session['last_recipe_directions'] = result['recipe'].get('directions', [])
-
+    session['last_recipe_ingredients'] = result['recipe'].get('ingredients', [])
     confirmation_list = result['confirmation_json']
     for ing in confirmation_list:
         u = ing.get("to_buy_unit")
@@ -158,7 +170,11 @@ def submit_request():
         units=units_list,
         user_input=user_text,
         request=True,
-    conf_type='conf'
+
+    conf_type='conf',
+        recipe_title= result['recipe'].get('title', []),
+        recipe_ingredients= result['recipe'].get('ingredients', []),
+        recipe_directions= result['recipe'].get('directions', []),
     )
 
 
@@ -195,7 +211,7 @@ def confirm_ingredient():
     # 2. Check if everything is at home
 
     if len(confirmed_ingredients) == 0:
-        recipe_title = recipe.get('title', '')
+        recipe_title = recipe.get('title', [])
         recipe_servings = recipe.get('servings', '')
         recipe_ingredients = recipe.get('ingredients', [])  # as list of strings
         recipe_directions = recipe.get('directions', [])    # as list of strings
@@ -224,13 +240,14 @@ def confirm_ingredient():
             recipe_servings=recipe_servings,
             recipe_ingredients=recipe_ingredients,
             recipe_directions=recipe_directions,
-            request=False,
+            request=True,
             message="All ingredients are available at home! No need to order anything 😊"
         )
 
     # 3. Otherwise, proceed with purchase pipeline
-    result,context = run_pipeline_to_order_confirmation(confirmed_ingredients, tokens_filename="tokens/total_tokens.txt")
-    session['pending_stores'] = result.get('stores', {})
+    result = run_pipeline_to_order_confirmation(confirmed_ingredients, tokens_filename="tokens/total_tokens.txt")
+
+
     # print(result)
     if 'error' in result or result.get("not_feasible"):
         # Handle case where no feasible order/cart could be made
@@ -245,7 +262,7 @@ def confirm_ingredient():
             request=False,
         )
     # if the total payment exceeds the budget, show a warning message
-    if context['budget'] is not None and result['total_payment']>context['budget']:
+    if session['context'].get('budget') is not None and result['total_payment']>session['context'].get('budget'):
 
         return render_template(
             'main.html',
@@ -258,6 +275,9 @@ def confirm_ingredient():
             units=units_list,
             user_input=user_text,
             request=True,
+            recipe_title=recipe.get('title', []),
+            recipe_ingredients=recipe.get('ingredients', []),
+            recipe_directions=recipe.get('directions', []),
             message=f"Total payment {result['total_payment']} NIS exceeds your budget of {context['budget']} NIS. Sorry, we couldn’t find an order within your budget, but we’ve selected the closest and cheapest option available for you. you can cancel items or delivery to get cheaper order"
         )
     # Normal payment confirmation view:
@@ -272,6 +292,9 @@ def confirm_ingredient():
         units=units_list,
         user_input=user_text,
         request=True,
+        recipe_title=recipe.get('title', []),
+        recipe_ingredients=recipe.get('ingredients', []),
+        recipe_directions=recipe.get('directions', []),
     )
 @app.route('/confirm_order', methods=['POST'])
 def confirm_order():
@@ -375,6 +398,9 @@ def confirm_order():
         payment_done=True,
         request=True,
         units=units_list,
+        user_input=session.get('last_user_text', ''),  # How you save user input
+        recipe_ingredients= session.get('last_recipe_ingredients', []),
+        message="Your order has been placed and paid successfully! You can download the receipts below.",
     )
 
 

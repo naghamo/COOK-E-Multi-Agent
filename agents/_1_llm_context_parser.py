@@ -3,6 +3,9 @@
 This agent parses user input to extract structured context for further processing in the pipeline."""
 import json
 import re
+import warnings
+import warnings
+import importlib
 
 from langchain_community.callbacks import get_openai_callback
 from langchain_community.chat_models import AzureChatOpenAI
@@ -48,9 +51,10 @@ Instructions:
 - If food_name is missing, set error and do not proceed further.
 - If the input is not a food request or is ambiguous, set error with a short message.
 - Output ONLY valid JSON with the fields above. No extra text.
-
+- Spelling-correction rule: If the user's food name (or a clearly intended dish/ingredient) is misspelled or non-standard, set food_name to the corrected, standardized name. Save the original under extra_fields.original_food_name. For other corrected terms (e.g., ingredients, brands), include a mapping under extra_fields.corrected_terms.
 User Request: {user_input}
 """
+
 # Create a ChatPromptTemplate from the context template
 prompt_template = ChatPromptTemplate.from_template(context_template)
 def extract_json_from_llm(text):
