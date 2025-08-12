@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=r"`encoder_att
 
 # Load environment variables from .env
 load_dotenv()
-
+from langchain.prompts import ChatPromptTemplate
 # Third-party libraries
 from pydantic import BaseModel, Field
 # from langchain_community.chat_models import AzureChatOpenAI
@@ -34,7 +34,7 @@ from langchain.tools import Tool, StructuredTool
 from langchain_core.embeddings import Embeddings
 from langchain.schema import SystemMessage
 from langchain_community.callbacks.manager import get_openai_callback
-
+# from langgraph.prebuilt import create_react_agent
 from langchain_qdrant import Qdrant
 from qdrant_client import QdrantClient, models as qm
 
@@ -542,6 +542,7 @@ agent = initialize_agent(
     agent_kwargs = {"system_message": SYSTEM_PROMPT},
     verbose    = True,
 )
+
 def extract_recipe_dict(agent_response: dict) -> dict:
     """
     Takes the agent's output dict and returns the parsed recipe dict.
