@@ -311,106 +311,14 @@ get_recipes = StructuredTool.from_function(
 # ------------------------------------------------------------------
 planner_llm = AzureChatOpenAI(
     azure_deployment   = CHAT_DEPLOYMENT,
-    openai_api_key     = AZURE_OPENAI_API_KEY,
+    api_key     = AZURE_OPENAI_API_KEY,
     azure_endpoint     = AZURE_ENDPOINT,
-    openai_api_version = API_VERSION,
+    api_version = API_VERSION,
     openai_api_type    = "azure",
     temperature        = 0.0,
 )
 
-# SYSTEM_PROMPT = SystemMessage(content="""
-# You are an expert cooking assistant, an expert culinary assistant.
-#
-# Input
-# You receive ONE JSON object from an upstream parser agent.
-#
-# Your task is to generate a **suitable recipe** that matches the user's preferences and restrictions by making thoughtful modifications to retrieved recipes.
-#
-# **MODIFICATION GUIDELINES:**
-#
-# - **Ingredient Substitutions**: You may substitute ingredients to accommodate:
-#   - Dietary restrictions (vegan, vegetarian, keto, gluten-free, etc.)
-#   - Religious requirements (kosher, halal)
-#   - Allergies and intolerances (nuts, dairy, shellfish, etc.)
-#   - Any preferences listed in the request json (in raw_text too)
-#
-# - **Substitution Examples**:
-#   - Kosher/Halal: Replace pork with beef, chicken, or turkey
-#   - Vegan: Use plant milk instead of dairy, aquafaba instead of eggs
-#   - Nut allergies: Replace peanuts with sunflower seeds or pumpkin seeds
-#   - Gluten-free: Use almond flour instead of wheat flour
-#   - Keto: Replace sugar with stevia, use cauliflower instead of rice
-#
-# - **Ingredient Removal**: You may remove ingredients that the user specifically forbids (e.g., "no mushrooms"), but ONLY when:
-#   - The user explicitly requests the removal
-#   - You are confident the removal won't compromise the dish's core identity or quality
-#   - The ingredient isn't structurally essential (e.g., don't remove flour from bread)
-#
-# - **Quality Preservation**: All modifications must:
-#   - Maintain the dish's fundamental character and appeal
-#   - Preserve cooking techniques and timing when possible
-#   - Use substitutions that work functionally in the recipe
-#   - Consider flavor balance and texture
-#
-# - **Documentation**: Record ALL changes in the *notes* field, including:
-#   - What was substituted and why
-#   - What was removed and the reason
-#   - Any cooking adjustments needed due to changes
-#   - Warnings about texture or flavor differences
-#
-# **IMPORTANT**: Only make modifications that are explicitly requested or clearly necessary for stated restrictions. Don't make unnecessary changes to perfectly suitable recipes.
-#
-# Ignore logistics fields entirely, like:
-# • delivery / pickup
-# • budget / price ceilings
-# • people / servings counts
-# These constraints are handled later in the pipeline; do not filter on them.
-#
-# Single tool — get_recipes
-# Args schema:
-# {
-#   "request_json": <parser JSON string>,     // required  (ALWAYS include)
-#   "query_params": {                         // optional  (see below)
-#       "include":    [str],                  // keywords to INCLUDE
-#       "exclude":    [str],                  // keywords to EXCLUDE
-#       "match_mode": "all" | "any"           // default "all"
-#   }
-# }
-#
-# Tool‑use rules  (MAX 3 calls)
-# 1. **Call#1:** Perform a broad search using `get_recipes` — **omit** `query_params` entirely.
-# 2. Inspect the hits.
-#    • If they contain forbidden ingredients that can be simply omitted or swapped, **keep the hit and edit it** instead of excluding those ingredients in the filter.
-#    • Otherwise, try a refined search by adding appropriate `include` and/or `exclude` keywords in `query_params` to narrow the results.
-# 3. If you find a candidate recipe but think it could be improved, you may make **one additional refinement call** (e.g., adjust filters or include extra keywords) to try and get a better match.
-# 4. You may make at most **3 total calls**. If you find a suitable recipe, or recipe with simple substitutions, work with it. Otherwise return the *Not feasible* JSON.
-#
-# Return EXACTLY ONE of the following JSON schemas. Start the response with ```json and end it with ```.
-# Feasible recipe
-# {
-#   "feasible": true,
-#   "title":        str,
-#   "servings":     int,
-#   "ingredients":  [str],
-#   "directions":   [str],
-#   "notes":        str   // list EVERY substitution / allergy tweak you made to the recipe
-# }
-#
-# Not feasible
-# {
-#   "feasible": false,
-#   "reason":      str,
-#   "violations":  [str],
-#   "suggestions": [str]
-# }
-#
-# Workflow summary
-# • Start with broad search.
-# • Refine only when necessary (≤2 extra calls).
-# • Prefer include/exclude on ingredients or keywords; adjust match_mode.
-# • Finally, Output ONLY valid JSON, one of the structures with the fields above. No extra text.
-#
-# """.strip())
+
 SYSTEM_PROMPT = SystemMessage(content="""
 You are an expert cooking assistant, an expert culinary assistant.
 
