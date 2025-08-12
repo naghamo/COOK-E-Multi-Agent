@@ -1,5 +1,5 @@
 ## Input Prompt 
-(postive food request but some ingredients are unavailable in any store)
+(positive food request but some ingredients are unavailable in any store)
 
 I want to vegan cheeseburger for 4"
 

@@ -1,5 +1,5 @@
 ## Input Prompt
-(Full postive food request)
+(Full positive food request)
 
 ![prompt6](media/prompt6.png)
 

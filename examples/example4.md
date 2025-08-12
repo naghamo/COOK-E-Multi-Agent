@@ -1,5 +1,5 @@
 ## Input Prompt
-(postive food request but there is no possible solution with the given budget or even close to it)
+(positive food request but there is no possible solution with the given budget or even close to it)
 
 "I want to make burger for 3 people with delivery under 50 nis"
 
