@@ -36,7 +36,7 @@ chat = AzureChatOpenAI(
     temperature=0,
 )
 # Define the context template for the LLM
-context_template =  """
+context_template = """
 You are an expert cooking assistant.
 Given a user's free-text request, extract as much information as possible into a single valid JSON object, using the following fields:
 
@@ -46,17 +46,23 @@ Given a user's free-text request, extract as much information as possible into a
 - special_requests: string or null.
 - budget: int or null.
 - raw_text: the original user input.
-- extra_fields: dictionary for any other constraints or preferences (e.g., allergies, brands, supermarkets, dietary restrictions, tools, timing, etc.), using snake_case for keys.
+- extra_fields: dictionary for any other constraints or preferences (e.g., allergies, brands, supermarkets, dietary restrictions, tools, timing, cooking style, cuisine, etc.), using snake_case for keys.
 - error: string, only if the input is ambiguous, not a food request, or if food_name is missing.
 
 Instructions:
 - If a field is missing, set to null (unless a default is specified).
 - If food_name is missing, set error and do not proceed further.
 - If the input is not a food request or is ambiguous, set error with a short message.
-- Output ONLY valid JSON with the fields above. No extra text.
-- Spelling-correction rule: If the user's food name (or a clearly intended dish/ingredient) is misspelled or non-standard, set food_name to the corrected, standardized name. Save the original under extra_fields.original_food_name. For other corrected terms (e.g., ingredients, brands), include a mapping under extra_fields.corrected_terms.
+- Spelling-correction rule:
+    1. If the user's food name (or a clearly intended dish/ingredient) is misspelled or non-standard, set food_name to the corrected, standardized name and save the original under extra_fields.original_food_name.
+    2. For other corrected terms (e.g., ingredients, brands, portion sizes, locations, delivery types), directly update the relevant fields or extra_fields based on the corrected meaning — do not store any mapping.
+- Interpret vague or indirect expressions in the request and infer the most likely intended values for the fields whenever possible.
+- Always return ONLY valid JSON with the fields above. No extra text.
+
 User Request: {user_input}
 """
+
+
 
 # Create a ChatPromptTemplate from the context template
 prompt_template = ChatPromptTemplate.from_template(context_template)
@@ -83,7 +89,7 @@ def parse_context(user_input, tokens_filename="../tokens/total_tokens.txt"):
         parsed_content = json.loads(json_content)
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON from response: {e}")
-
+    print('Parsed context:', parsed_content)
     return parsed_content
 
 
