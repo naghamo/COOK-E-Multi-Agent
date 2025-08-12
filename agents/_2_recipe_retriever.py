@@ -52,7 +52,7 @@ EMBED_DEPLOYMENT       = os.getenv("EMBED_DEPLOYMENT", "team10-embedding")
 API_VERSION           = "2023-05-15"
 
 # Qdrant vector store settings
-QDRANT_URL       = os.getenv("QDRANT_URL", "http://localhost:6333")
+QDRANT_URL       = QDRANT_URL = "https://fb9ff699-573f-4db8-b591-6c105ef51090.europe-west3-0.gcp.cloud.qdrant.io:6333"
 QDRANT_API_KEY   = os.getenv("QDRANT_API_KEY")
 COLLECTION       = "recipes_openai"
 
