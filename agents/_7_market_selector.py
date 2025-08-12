@@ -35,11 +35,12 @@ from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_openai import AzureChatOpenAI
 
-from langchain_community.callbacks import get_openai_callback
+from langchain_community.callbacks.manager import get_openai_callback
+
 from tokens.tokens_count import update_total_tokens
 
 from dotenv import load_dotenv
-
+from pydantic import SecretStr
 load_dotenv()
 
 # ===============================================================================
@@ -53,9 +54,9 @@ API_VERSION = "2023-05-15"
 
 llm = AzureChatOpenAI(
     azure_deployment=DEPLOYMENT_NAME,
-    api_key=AZURE_OPENAI_API_KEY,
+    api_key=SecretStr(AZURE_OPENAI_API_KEY),
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
-    openai_api_version=API_VERSION,
+    api_version=API_VERSION,
     openai_api_type="azure",
     temperature=0  # Deterministic responses for consistency
 )

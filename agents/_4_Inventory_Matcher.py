@@ -13,13 +13,15 @@ warnings.filterwarnings("ignore", category=UserWarning)
 from langchain_core._api import LangChainDeprecationWarning
 warnings.filterwarnings("ignore", category=LangChainDeprecationWarning)
 import pandas as pd
-from langchain_community.callbacks import get_openai_callback
-from langchain_community.chat_models import AzureChatOpenAI
+from langchain_community.callbacks.manager import get_openai_callback
+
+
+from langchain_openai import AzureChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 import os
 from dotenv import load_dotenv
 from tokens.tokens_count import update_total_tokens
-
+from pydantic import SecretStr
 # --- ENV SETUP ---
 
 # Load API keys and deployment settings from .env
@@ -32,9 +34,9 @@ API_VERSION = "2023-05-15"
 # Initialize Azure OpenAI LLM for matching
 chat = AzureChatOpenAI(
     azure_deployment=DEPLOYMENT_NAME,
-    api_key=AZURE_OPENAI_API_KEY,
+    api_key=SecretStr(AZURE_OPENAI_API_KEY),
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
-    openai_api_version=API_VERSION,
+    api_version=API_VERSION,
     openai_api_type="azure",
     temperature=0,
 )

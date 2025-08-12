@@ -7,10 +7,13 @@ import warnings
 import warnings
 import importlib
 
-from langchain_community.callbacks import get_openai_callback
-from langchain_community.chat_models import AzureChatOpenAI
+from langchain_community.callbacks.manager import get_openai_callback
+
+# from langchain_community.chat_models import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.schema import HumanMessage
+from pydantic import SecretStr
 
 from tokens.tokens_count import update_total_tokens
 from dotenv import load_dotenv
@@ -26,9 +29,9 @@ API_VERSION = "2023-05-15"
 # Initialize the AzureChatOpenAI model
 chat = AzureChatOpenAI(
     azure_deployment=DEPLOYMENT_NAME,
-    api_key=AZURE_OPENAI_API_KEY,
+    api_key=SecretStr(AZURE_OPENAI_API_KEY),
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
-    openai_api_version=API_VERSION,
+    api_version=API_VERSION,
     openai_api_type="azure",
     temperature=0,
 )

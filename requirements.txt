@@ -1,4 +1,4 @@
-# Web and core
+# Web & Core
 flask~=3.1.1
 python-dotenv
 
@@ -6,36 +6,23 @@ python-dotenv
 pandas~=2.2.3
 numpy~=1.26.4
 
-# Vector DB and search
-qdrant-client>=1.6.3
+# Vector DB (with gRPC support)
+qdrant-client[grpc]>=1.6.3
 
-# ML & embeddings
-kagglehub~=0.3.12
+# LangChain + Azure/OpenAI
+langchain-qdrant>=0.1.0
 langchain==0.3.27
 langchain-community==0.3.27
 langchain-core==0.3.72
 langchain-openai==0.3.28
-langchain-huggingface>=0.0.2
-
-# OpenAI
 openai>=1.6.0
 
-# Data models
+# Models / validation
 pydantic==2.11.7
 
-# Units and conversions
+# Utilities & extras
 pint
-
-# tqdm for progress bars
 tqdm
-
-protobuf~=6.31.1
-
-# Fast fuzzy matching
 rapidfuzz
-
-#
-typing-extensions
-
-eval-type-backport
 fpdf2~=2.7.8
+typing-extensions

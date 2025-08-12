@@ -27,13 +27,15 @@ load_dotenv()
 
 # Third-party libraries
 from pydantic import BaseModel, Field
-from langchain_community.chat_models import AzureChatOpenAI
+# from langchain_community.chat_models import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from langchain.agents import initialize_agent, AgentType
 from langchain.tools import Tool, StructuredTool
 from langchain_core.embeddings import Embeddings
 from langchain.schema import SystemMessage
-from langchain.callbacks.manager import get_openai_callback
-from langchain_community.vectorstores import Qdrant
+from langchain_community.callbacks.manager import get_openai_callback
+
+from langchain_qdrant import Qdrant
 from qdrant_client import QdrantClient, models as qm
 
 # Utility for token logging
@@ -52,7 +54,7 @@ EMBED_DEPLOYMENT       = os.getenv("EMBED_DEPLOYMENT", "team10-embedding")
 API_VERSION           = "2023-05-15"
 
 # Qdrant vector store settings
-QDRANT_URL       = QDRANT_URL = "https://fb9ff699-573f-4db8-b591-6c105ef51090.europe-west3-0.gcp.cloud.qdrant.io:6333"
+QDRANT_URL       = "https://fb9ff699-573f-4db8-b591-6c105ef51090.europe-west3-0.gcp.cloud.qdrant.io:6333"
 QDRANT_API_KEY   = os.getenv("QDRANT_API_KEY")
 COLLECTION       = "recipes_openai"
 
@@ -80,7 +82,7 @@ client_azr = AzureOpenAI(
 # We'll use our wrapper, but it still requires embedder
 embedder = AzureOpenAIEmbeddings(
     azure_deployment=EMBED_DEPLOYMENT,
-    openai_api_version=API_VERSION,
+    api_version=API_VERSION,
     azure_endpoint=AZURE_ENDPOINT,
     api_key=AZURE_OPENAI_API_KEY,
 )

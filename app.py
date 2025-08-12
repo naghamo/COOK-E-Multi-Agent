@@ -5,7 +5,10 @@ It uses a pipeline of agents to process user requests, confirm inventory, and ex
 """
 import warnings
 import importlib
-
+warnings.filterwarnings(
+    "ignore",
+    message="LangChain agents will continue to be supported, but it is recommended for new use cases to be built with LangGraph"
+)
 # Dynamically import LangChainDeprecationWarning without importing the rest of LangChain yet
 LangChainDeprecationWarning = getattr(
     importlib.import_module("langchain_core._api"),
