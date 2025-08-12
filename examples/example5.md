@@ -21,14 +21,14 @@
 
 ![output5](media/output5.png)
  
-### The receipts pdf
+### The receipts PDF
 
 ![pdf5](media/pdf5.png)
 
-### the recipe
+### The recipe
 
 ![ing5](media/ing5.png)
 
-### the recipe steps
+### The recipe steps
 
 ![steps5](media/steps5.png)
