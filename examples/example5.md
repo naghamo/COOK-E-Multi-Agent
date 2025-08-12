@@ -1,5 +1,5 @@
 ## Input Prompt
-(positive food request but there is no feasible solution with the given budget but there is a possible solution with close budget)
+(positive food request but there is no possible solution with the given budget but there is a possible solution with close budget)
 
 ![prompt5](media/prompt5.png)
 
@@ -13,7 +13,7 @@
 
 ## Pay and Delivery Confirmation
 
-(in the confrimation step, we confirm the payment and delivery options as in the image below)
+(in the confirmation step, we confirm the payment and delivery options as in the image below)
 
 ![pay5](media/pay5.png)
 

@@ -11,7 +11,7 @@
 
 ## Pay and Delivery Confirmation
 
-(in the confrimation step, we confirm the payment and delivery options as in the image below)
+(in the confirmation step, we confirm the payment and delivery options as in the image below)
 
 ![pay6](media/pay6.png)
 
