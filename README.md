@@ -52,8 +52,9 @@ COOK-E_Agent/
 │   └── units.txt                               # Available measurement units for quantities
 │
 ├── examples/                                  # Evaluation examples for the project
-│   ├── positive/                               # Positive examples where system performs well
-│   └── negative/                               # Negative examples highlighting failures or limitations
+│   ├── media/                               # Media files for examples
+│   ├── explaining_the_functionality_to_users.md  # File that shows the explination massage to the user and more things in the  web interface  
+│   └── example$.md                             # example markdown file number $ with input prompts, outputs, and explanations
 │
 ├── static/                                    # Static files served by Flask
 │   ├── fonts/                                  # Fonts used in web UI and PDFs
@@ -65,6 +66,7 @@ COOK-E_Agent/
 │   └── main.html                               # Main application interface template
 │
 ├── tokens/                                    # Tracks LLM token usage
+│   ├── total_tokens_embed.txt                 # Log file of total tokens consumed by embedding
 │   ├── tokens_count.py                         # Utility to update token usage logs
 │   └── total_tokens.txt                        # Log file of total tokens consumed
 │
