@@ -29,11 +29,11 @@ Ready? Just type your request below and let’s get cooking! 🛒🔥
 
 
 ### Manage Home Inventory
-You can manage your home inventory in the web interface.
-You can add, edit, or remove items from your inventory.
+The user can manage his home inventory in the web interface.
+He can add, edit, or remove items from his inventory.
 ![inventory](media/inventory.png)
 
 ### View Old Requests
-You can view your old requests in the web interface.
-You can see the recipes, receipts, and directions for your old requests.
+The user can view his old requests in the web interface.
+He can see the recipes, receipts, and directions for his old requests.
 ![old_requests](media/old_requests.png)
