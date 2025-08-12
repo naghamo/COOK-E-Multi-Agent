@@ -103,7 +103,7 @@ On the login screen, enter the default credentials:
 - **Username:** `TECHNION`  
 - **Password:** `0000`  
 
-![Login Page](media/login_page.png)  
+![Login Page](examples/media/login.png)  
 
 ---
 ### There you will see brief description of the COOK·E system.
@@ -118,9 +118,7 @@ Type your request in natural language. You can include:
 Example:  
 ```
 Vegan shakshuka for 4 people, under 50 NIS, delivery
-```
-
-![New Request Form](media/new_request.png)  
+``` 
 
 ---
 
@@ -131,7 +129,7 @@ You can:
 - Change units  
 - Remove ingredients you don’t want to purchase by putting `0` in the quantity field
 
-![Ingredient Confirmation](media/ingredient_confirmation.png)  
+ 
 
 ---
 
@@ -146,7 +144,7 @@ You can:
 - Turn off delivery for pickup  
  
 
-![Review & Pay](media/review_payment.png)  
+! 
 
 ---
 
@@ -158,7 +156,7 @@ After confirming, COOK·E will:
 
 You can download receipts and follow the cooking steps right away!  
 
-![Final Recipe](media/final_recipe.png)  
+  
 
 ---
 
@@ -167,8 +165,7 @@ From the web interface, you can:
 - **Edit your home inventory:** Add, edit, or delete items you have at home  
 - **View old requests:** See past recipes, receipts, and directions anytime  
 
-![Inventory Management](media/inventory.png)  
-![Old Requests](media/old_requests.png)  
+
 
 ---
 

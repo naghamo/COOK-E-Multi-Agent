@@ -8,8 +8,6 @@
 
 ![conf6](media/conf6.png)
 
-### Warning Message
-![warning6](media/warning6.png)
 
 ## Pay and Delivery Confirmation
 
