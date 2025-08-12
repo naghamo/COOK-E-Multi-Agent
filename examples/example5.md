@@ -4,6 +4,7 @@
 ![prompt5](media/prompt5.png)
 
 ## Ingredient Confirmation
+(confirmed all as in the image below)
 
 ![conf4](media/conf4.png)
 
