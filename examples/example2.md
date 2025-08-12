@@ -6,7 +6,9 @@ I want to vegan cheeseburger for 4"
 ![prompt2](media/prompt2.png)
 
 ## Ingredient Confirmation
+
 (confirmed all as in the image below)
+
 ![conf2](media/conf2.png)
 
 ## Output Response
