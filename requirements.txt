@@ -1,26 +1,15 @@
-# Web & Core
 flask~=3.1.1
 python-dotenv
-
-# Data handling
 pandas~=2.2.3
 numpy~=1.26.4
-
-# Vector DB (with gRPC support)
-qdrant-client[grpc]>=1.6.3
-
-# LangChain + Azure/OpenAI
+qdrant-client>=1.6.3
 langchain-qdrant>=0.1.0
 langchain==0.3.27
 langchain-community==0.3.27
 langchain-core==0.3.72
 langchain-openai==0.3.28
 openai>=1.6.0
-
-# Models / validation
 pydantic==2.11.7
-
-# Utilities & extras
 pint
 tqdm
 rapidfuzz
