@@ -278,7 +278,7 @@ def confirm_ingredient():
             recipe_title=recipe.get('title', []),
             recipe_ingredients=recipe.get('ingredients', []),
             recipe_directions=recipe.get('directions', []),
-            message=f"Total payment {result['total_payment']} NIS exceeds your budget of {context['budget']} NIS. Sorry, we couldn’t find an order within your budget, but we’ve selected the closest and cheapest option available for you. you can cancel items or delivery to get cheaper order"
+            message=f"Total payment {result['total_payment']} NIS exceeds your budget of {session['context'].get('budget')} NIS. Sorry, we couldn’t find an order within your budget, but we’ve selected the closest and cheapest option available for you. you can cancel items or delivery to get cheaper order"
         )
     # Normal payment confirmation view:
     return render_template(
