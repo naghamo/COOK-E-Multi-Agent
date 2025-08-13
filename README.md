@@ -57,7 +57,7 @@ COOK-E_Agent/
 │
 ├── examples/                                  # Evaluation examples for the project
 │   ├── media/                               # Media files for examples
-│   ├── explaining_the_functionality_to_users.md  # File that shows the explination massage to the user and more things in the  web interface  
+│   ├── explaining-the-functionality-to-users.md  # File that shows the explination massage to the user and more things in the  web interface  
 │   └── 0$-.md                                 # Example markdown file ($ = example number) containing input prompts, outputs, and explanations
 │
 ├── static/                                    # Static files served by Flask
