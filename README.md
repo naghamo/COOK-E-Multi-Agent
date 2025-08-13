@@ -6,6 +6,12 @@
 
 COOK·E is an **autonomous, multi-agent AI system** that transforms a user's free-text cooking request into an optimized, ready-to-order grocery cart from real supermarkets. The project demonstrates the power of LLM-based reasoning, product/recipe data integration, and step-by-step pipeline orchestration, all wrapped in a user-friendly web interface.
 
+<p align="center">
+  <a href="https://youtu.be/RX-9xe3PETI?si=GFTLd0zpJS-1XyXk">
+    <img src="https://img.youtube.com/vi/RX-9xe3PETI/0.jpg" alt="COOK·E Demo" width="600"/>
+  </a>
+</p>
+
 ---
 
 ## 🔄 Changes from Original Proposal
