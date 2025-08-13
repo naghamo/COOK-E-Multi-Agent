@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" alt="Logo" width="200" />
+</p>
+
 # COOK·E – Cognitive Organized Online Kitchen Expert
 
 COOK·E is an **autonomous, multi-agent AI system** that transforms a user's free-text cooking request into an optimized, ready-to-order grocery cart from real supermarkets. The project demonstrates the power of LLM-based reasoning, product/recipe data integration, and step-by-step pipeline orchestration, all wrapped in a user-friendly web interface.
