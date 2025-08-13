@@ -544,6 +544,21 @@ BASKET_FN = {
         "SUBSTITUTION HANDLING:\n"
         "- If you deviate from user preferences, explain in the product's 'notes' field\n"
         "- Examples: 'Chose different store than preferred', 'Selected substitute product due to price'\n"
+        "OUTPUT SHAPE EXAMPLE (use this structure):\n"
+        "{\n"
+        "  \"selection\": {\n"
+        "    \"olive oil\": {\"store\": \"rami_levy\", \"cid\": \"0-rami_levy-0\", \"packs_needed\": 1, \"notes\": \"Best price per ml after discount\"},\n"
+        "    \"tomatoes\": {\"store\": \"victory\", \"cid\": \"1-victory-0\", \"packs_needed\": 1, \"notes\": \"Good quality crushed tomatoes\"},\n"
+        "    \"salt\": {\"store\": \"rami_levy\", \"cid\": \"3-rami_levy-0\", \"packs_needed\": 1, \"notes\": \"Bulk size meets needs\"}\n"
+        "  },\n"
+        "  \"store_summary\": {\n"
+        "    \"rami_levy\": {\"items_total\": 26.7, \"delivery_fee\": 15, \"grand_total\": 41.7, \"meets_min_order\": false, \"notes\": \"Just under minimum order\"},\n"
+        "    \"victory\": {\"items_total\": 10.9, \"delivery_fee\": 21, \"grand_total\": 31.9, \"meets_min_order\": false, \"notes\": \"Single item order - consider pickup\"}\n"
+        "  },\n"
+        "  \"suggestions\": [\n"
+        "    \"Consider pickup from victory to save 21 NIS delivery fee\"\n"
+        "  ]\n"
+        "}\n"
     ),
     "parameters": temp_basket_schema
 }
