@@ -454,64 +454,112 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-@app.route('/main')
+@app.route('/main', methods=['GET', 'POST'])
 def main():
     if 'user' not in session:
         return redirect('/login')
+
     inventory = load_inventory()
     units_list = load_units()
     old_requests = load_old_requests()
+
     if request.method == 'POST':
-        # Handle delete action
+        # --- Delete action (button submits with name="delete_idx") ---
         if 'delete_idx' in request.form:
-            delete_idx = int(request.form['delete_idx'])
+            try:
+                delete_idx = int(request.form['delete_idx'])
+            except (ValueError, TypeError):
+                return redirect(url_for('main'))
+
             if 0 <= delete_idx < len(inventory):
                 del inventory[delete_idx]
                 save_inventory(inventory)
             return redirect(url_for('main'))
 
-        # Update existing inventory
-        names = request.form.getlist('name')
-        quantities = request.form.getlist('quantity')
-        units = request.form.getlist('unit')
-        custom_units = request.form.getlist('custom_unit')
-        expiries = request.form.getlist('expiry')
+        # --- Only proceed for an explicit "Save Changes" submit ---
+        if request.form.get('action') != 'save':
+            return redirect(url_for('main'))
+
+        # --- Read existing row inputs (use bracketed keys to match HTML) ---
+        names = request.form.getlist('name[]')
+        quantities = request.form.getlist('quantity[]')
+        units = request.form.getlist('unit[]')
+        custom_units = request.form.getlist('custom_unit[]')
+        expiries = request.form.getlist('expiry[]')
+
         rows = []
 
+        # Strong guard: if no rows AND no new item, don't wipe the DB
+        if not names and not request.form.get('new_name', '').strip():
+            # You may still want to persist units_list expansions from a different form section;
+            # if not, remove the next line.
+            save_units(units_list)
+            return redirect(url_for('main'))
+
+        # --- Update existing rows ---
         for n, q, u, cu, e in zip(names, quantities, units, custom_units, expiries):
-            # If "other" was selected, use the custom unit value
-            real_unit = cu.strip() if u == 'other' and cu.strip() else u.strip()
-            if real_unit and real_unit not in units_list:
+            n = (n or '').strip()
+            q = (q or '').strip()
+            u = (u or '').strip()
+            cu = (cu or '').strip()
+            e = (e or '').strip()
+
+            if not n:
+                # Skip blank-name rows
+                continue
+
+            # Resolve "other" units once
+            real_unit = (cu if (u == 'other' and cu) else u) or 'units'
+
+            # Expand units list if encountering a new unit
+            if real_unit not in units_list:
                 units_list.append(real_unit)
 
-            real_unit = cu.strip() if u == 'other' and cu.strip() else u.strip()
-            if n.strip():
-                rows.append({
-                    "name": n.strip(),
-                    "quantity": q.strip() if q.strip() else 0,
-                    "unit": real_unit if real_unit else "units",
-                    "expiry": e.strip() if e.strip() else ""
-                })
-        save_units(units_list)
-        # For new item
-        new_name = request.form.get('new_name', '').strip()
-        new_quantity = request.form.get('new_quantity', '').strip()
-        new_unit = request.form.get('new_unit', '').strip()
-        new_custom_unit = request.form.get('new_custom_unit', '').strip()
-        new_real_unit = new_custom_unit if new_unit == 'other' and new_custom_unit else new_unit
-        if new_name:
             rows.append({
-                "name": new_name,
-                "quantity": new_quantity if new_quantity else 0,
-                "unit": new_real_unit if new_real_unit else "units",
-                "expiry": request.form.get('new_expiry', '').strip() or ""
+                "name": n,
+                "quantity": q or 0,
+                "unit": real_unit,
+                "expiry": e or ""
             })
 
+        # --- Handle new item row (optional) ---
+        new_name = request.form.get('new_name', '').strip()
+        if new_name:
+            new_quantity = request.form.get('new_quantity', '').strip()
+            new_unit = request.form.get('new_unit', '').strip()
+            new_custom_unit = request.form.get('new_custom_unit', '').strip()
+            new_expiry = request.form.get('new_expiry', '').strip()
+
+            new_real_unit = (new_custom_unit if (new_unit == 'other' and new_custom_unit) else new_unit) or 'units'
+            if new_real_unit not in units_list:
+                units_list.append(new_real_unit)
+
+            rows.append({
+                "name": new_name,
+                "quantity": new_quantity or 0,
+                "unit": new_real_unit,
+                "expiry": new_expiry or ""
+            })
+
+        # If rows ended up empty, keep existing inventory instead of wiping
+        if not rows:
+            save_units(units_list)
+            return redirect(url_for('main'))
+
+        # --- Persist updates ---
+        save_units(units_list)
         save_inventory(rows)
         return redirect(url_for('main'))
 
-    return render_template('main.html', inventory=inventory, user=session['user'], units=units_list,old_requests=old_requests,request=False)
-
+    # --- GET: render page ---
+    return render_template(
+        'main.html',
+        inventory=inventory,
+        user=session['user'],
+        units=units_list,
+        old_requests=old_requests,
+        request=False
+    )
 
 
 if __name__ == '__main__':

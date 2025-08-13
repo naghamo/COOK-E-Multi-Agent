@@ -223,81 +223,76 @@
 {% if not request%}
         <!-- Home Inventory Section -->
         <section id="inventory-section" class="card">
-            <h2>Home Inventory</h2>
-            <form method="POST" action="/main">
-                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                    <div style="margin-bottom: 10px;">
-                        <input type="text" id="inventory-search" placeholder="Search by item name..." style="width: 100%; padding: 8px;">
-                    </div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Item</th>
-                                <th>Quantity</th>
-                                <th>Unit</th>
-                                <th>Earliest Expiry</th>
-                                <th>Delete</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventory-body">
-                            {% for row in inventory or [] %}
-                            {% set idx = loop.index0 %}
-                            <tr>
-                                <td>
-                                    <input type="text" name="name" value="{{ row.name }}" required>
-                                </td>
-                                <td>
-                                    <input type="number" min="0" step="any" name="quantity" value="{{ row.quantity }}" required>
-                                </td>
-                                <td>
-                                    <select name="unit">
-                                        {% for unit in units %}
-                                            <option value="{{ unit }}" {% if row.unit == unit %}selected{% endif %}>{{ unit|capitalize }}</option>
-                                        {% endfor %}
-                                        <option value="other">Other...</option>
-                                    </select>
-                                    <input type="text" name="custom_unit" class="unit-input"
-                                           value="{% if row.unit not in ['units', 'grams', 'kg', 'ml', 'l'] %}{{ row.unit }}{% endif %}"
-                                           style="display: {% if row.unit not in ['units', 'grams', 'kg', 'ml', 'l'] %}inline{% else %}none{% endif %}; width: 70px; margin-top: 5px;"
-                                           placeholder="Unit...">
-                                </td>
-                                <td>
-                                    <input type="date" name="expiry" value="{{ row.expiry }}" required>
-                                </td>
-                                <td>
-                                    <button type="submit" name="delete_idx" value="{{ idx }}" class="edit-btn" style="background:#fff0f0;color:#a00;">🗑️</button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                            <tr>
-                                <td>
-                                    <input type="text" name="new_name" placeholder="Add new item...">
-                                </td>
-                                <td>
-                                    <input type="number" min="0" name="new_quantity" placeholder="Qty">
-                                </td>
-                                <td>
-                                    <select name="new_unit" onchange="toggleUnitInput(this)">
-                                        <option value="units">Units</option>
-                                        <option value="grams">Grams</option>
-                                        <option value="kg">Kg</option>
-                                        <option value="ml">Ml</option>
-                                        <option value="l">L</option>
-                                        <option value="other">Other...</option>
-                                    </select>
-                                    <input type="text" name="new_custom_unit" class="unit-input" style="display:none; width: 70px; margin-top: 5px;" placeholder="Unit...">
-                                </td>
-                                <td>
-                                    <input type="date" name="new_expiry">
-                                </td>
-                                <td></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <button type="submit" class="primary-btn">Save Changes</button>
-            </form>
-        </section>
+  <h2>Home Inventory</h2>
+  <form method="POST" action="/main">
+    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+      <div style="margin-bottom: 10px;">
+        <input type="text" id="inventory-search" placeholder="Search by item name..." style="width: 100%; padding: 8px;">
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th><th>Quantity</th><th>Unit</th><th>Earliest Expiry</th><th>Delete</th>
+          </tr>
+        </thead>
+        <tbody id="inventory-body">
+          {% for row in inventory or [] %}
+          {% set idx = loop.index0 %}
+          <tr>
+
+            <input type="hidden" name="item_id[]" value="{{ row.index }}">
+            <td>
+              <input type="text" name="name[]" value="{{ row.name }}" required>
+            </td>
+            <td>
+              <input type="number" min="0" step="any" name="quantity[]" value="{{ row.quantity }}" required>
+            </td>
+            <td>
+              <select name="unit[]">
+                {% for unit in units %}
+                  <option value="{{ unit }}" {% if row.unit == unit %}selected{% endif %}>{{ unit|capitalize }}</option>
+                {% endfor %}
+                <option value="other" {% if row.unit not in ['units','grams','kg','ml','l'] %}selected{% endif %}>Other...</option>
+              </select>
+              <input type="text" name="custom_unit[]" class="unit-input"
+                     value="{% if row.unit not in ['units','grams','kg','ml','l'] %}{{ row.unit }}{% endif %}"
+                     style="display: {% if row.unit not in ['units','grams','kg','ml','l'] %}inline{% else %}none{% endif %}; width:70px; margin-top:5px;"
+                     placeholder="Unit...">
+            </td>
+            <td>
+              <input type="date" name="expiry[]" value="{{ row.expiry }}" required>
+            </td>
+            <td>
+              <!-- עדיף למחוק לפי ID, אבל אם נשארים עם אינדקס, נשמור תאימות -->
+              <button type="submit" name="delete_idx" value="{{ idx }}" class="edit-btn" style="background:#fff0f0;color:#a00;">🗑️</button>
+            </td>
+          </tr>
+          {% endfor %}
+
+          <!-- שורה להוספת פריט חדש -->
+          <tr>
+            <td><input type="text" name="new_name" placeholder="Add new item..."></td>
+            <td><input type="number" min="0" name="new_quantity" placeholder="Qty"></td>
+            <td>
+              <select name="new_unit" onchange="toggleUnitInput(this)">
+                <option value="units">Units</option>
+                <option value="grams">Grams</option>
+                <option value="kg">Kg</option>
+                <option value="ml">Ml</option>
+                <option value="l">L</option>
+                <option value="other">Other...</option>
+              </select>
+              <input type="text" name="new_custom_unit" class="unit-input" style="display:none; width:70px; margin-top:5px;" placeholder="Unit...">
+            </td>
+            <td><input type="date" name="new_expiry"></td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <button type="submit" name="action" value="save" class="primary-btn">Save Changes</button>
+  </form>
+</section>
 
 
         <!-- Old Requests Section -->
