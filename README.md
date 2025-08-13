@@ -6,15 +6,6 @@
 
 COOK·E is an **autonomous, multi-agent AI system** that transforms a user's free-text cooking request into an optimized, ready-to-order grocery cart from real supermarkets. The project demonstrates the power of LLM-based reasoning, product/recipe data integration, and step-by-step pipeline orchestration, all wrapped in a user-friendly web interface.
 
-<p align="center">
-  <a href="https://youtu.be/RX-9xe3PETI">
-    <img src="https://img.youtube.com/vi/RX-9xe3PETI/maxresdefault.jpg" alt="COOK·E Demo" width="400"/>
-  </a>
-</p>
-<p align="center">
-  <em>👆 Click to watch the demo video</em>
-</p>
-
 ## 🔄 Changes from Original Proposal
 
 During development, we made several architectural adjustments to improve efficiency, reduce redundancy, and better fit our web app structure:  
@@ -105,9 +96,18 @@ Then run:
 ```bash
 python app.py
 ```
-The server will start locally, usually at:(the link will be in the terminal output .e.g Running on http://127.0.0.1:5000) 
-
+The server will start locally (the link will be in the terminal output .e.g Running on http://127.0.0.1:5000), usually at:
 [http://localhost:5000](http://localhost:5000)  
+
+
+<p align="center">
+  <a href="https://youtu.be/RX-9xe3PETI">
+    <img src="https://img.youtube.com/vi/RX-9xe3PETI/maxresdefault.jpg" alt="COOK·E Demo" width="400"/>
+  </a>
+</p>
+<p align="center">
+  <em>👆 Click to watch the demo video</em>
+</p>
 
 ---
 
@@ -156,8 +156,6 @@ You can:
 - Remove items to lower cost  
 - Turn off delivery for pickup  
  
-
-! 
 
 ---
 
