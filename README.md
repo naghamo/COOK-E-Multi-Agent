@@ -100,7 +100,8 @@ The server will start locally (the link will be in the terminal output .e.g Runn
 [http://localhost:5000](http://localhost:5000)  
 
 
-<iframe width="777" height="295" src="https://www.youtube.com/embed/RX-9xe3PETI" title="COOK•E - Cognitive Organized Online Kitchen Expert " frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+[![COOK•E - Cognitive Organized Online Kitchen Expert](https://img.youtube.com/vi/RX-9xe3PETI/0.jpg)](https://www.youtube.com/watch?v=RX-9xe3PETI)
+
 <p align="center">
   <em>👆 Click to watch the demo video</em>
 </p>
