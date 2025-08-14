@@ -72,7 +72,6 @@ COOK-E_Agent/
 │   ├── tokens_count.py                         # Utility to update token usage logs
 │   └── total_tokens_llm.txt                        # Log file of total tokens consumed by llm 
 │
-├── .gitignore                                 # Git ignore file to exclude sensitive/unnecessary files
 ├── app.py                                     # Flask app – handles routes, user sessions, renders HTML
 ├── pipeline.py                                # Orchestrates execution flow between agents
 ├── README.md                                  # Project documentation
