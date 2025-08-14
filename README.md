@@ -70,7 +70,7 @@ COOK-E_Agent/
 ├── tokens/                                    # Tracks LLM token usage
 │   ├── total_tokens_embed.txt                 # Log file of total tokens consumed by embedding
 │   ├── tokens_count.py                         # Utility to update token usage logs
-│   └── total_tokens_llm.txt                        # Log file of total tokens consumed by llm 
+│   └── total_tokens_llm.txt                        # Log file of total tokens consumed by llm output+input
 │
 ├── app.py                                     # Flask app – handles routes, user sessions, renders HTML
 ├── pipeline.py                                # Orchestrates execution flow between agents
