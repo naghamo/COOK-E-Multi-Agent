@@ -42,11 +42,10 @@ Given a user's free-text request, extract as much information as possible into a
 
 - food_name: string. (Required. If not found, set to null and include a short error.)
 - people: integer. (Default to 1 if not specified.)
-- delivery: string. ("delivery", "pickup", or null; default to "delivery" if not specified.)
+- delivery: string. ("delivery", "pickup"; default to "delivery" if not specified.)
 - special_requests: string or null.
-- budget: int or null.
+- budget: int or null. (If budget is not in ILS, convert it to ILS. If only a single number is given without currency, assume it is in ILS.)
 - raw_text: the original user input.
-- extra_fields: dictionary for any other constraints or preferences (e.g., allergies, brands, supermarkets, dietary restrictions, tools, timing, cooking style, cuisine, etc.), using snake_case for keys.
 - error: string, only if the input is ambiguous, not a food request, or if food_name is missing.
 
 Instructions:
@@ -54,9 +53,10 @@ Instructions:
 - If food_name is missing, set error and do not proceed further.
 - If the input is not a food request or is ambiguous, set error with a short message.
 - Spelling-correction rule:
-    1. If the user's food name (or a clearly intended dish/ingredient) is misspelled or non-standard, set food_name to the corrected, standardized name and save the original under extra_fields.original_food_name.
-    2. For other corrected terms (e.g., ingredients, brands, portion sizes, locations, delivery types), directly update the relevant fields or extra_fields based on the corrected meaning — do not store any mapping.
+    1. If the user's food name (or a clearly intended dish/ingredient) is misspelled or non-standard, set food_name to the corrected, standardized name and add the original as a separate field called original_food_name.
+    2. For other corrected terms (e.g., ingredients, brands, portion sizes, locations, delivery types), directly update the relevant fields based on the corrected meaning.
 - Interpret vague or indirect expressions in the request and infer the most likely intended values for the fields whenever possible.
+- Any additional extracted fields (e.g., allergies, brands, supermarkets, dietary_restrictions, tools, timing, cooking_style, cuisine, etc.) should be added as **individual top-level fields** in the JSON, not inside a dictionary.
 - Always return ONLY valid JSON with the fields above. No extra text.
 
 User Request: {user_input}
@@ -89,11 +89,11 @@ def parse_context(user_input, tokens_filename="../tokens/total_tokens.txt"):
         parsed_content = json.loads(json_content)
     except json.JSONDecodeError as e:
         raise ValueError(f"Failed to parse JSON from response: {e}")
-    print('Parsed context:', parsed_content)
+
     return parsed_content
 
 
-# if __name__ == "__main__":
-#     # Example user input
-#     inp = "play"
-#     print(parse_context(inp))
+if __name__ == "__main__":
+    # Example user input
+    inp = "burger from rami lavy supermarket"
+    print(parse_context(inp))
