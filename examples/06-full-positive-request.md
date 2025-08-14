@@ -21,7 +21,7 @@
  
 ### The receipts PDF
 
-![pdf6](media/pdf6.png)
+<img src="media/pdf6.png" alt="Old requests screen" width="500" />
 
 ### The recipe
 

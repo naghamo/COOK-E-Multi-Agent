@@ -24,16 +24,24 @@ and more
 Ready? Just type your request below and let’s get cooking! 🛒🔥
 
 
-![welcome](media/welcome.png)
-![explanation](media/explain.png)
-
+<p align="center">
+  <img src="media/welcome.png" alt="Welcome screen" width="300" />
+</p>
+<p align="center">
+  <img src="media/explain.png" alt="Explanation screen" width="300" />
+</p>
 
 ### Manage Home Inventory
 The user can manage his home inventory in the web interface.
 He can add, edit, or remove items from his inventory.
-![inventory](media/inventory.png)
+<p align="center">
+  <img src="media/inventory.png" alt="Inventory screen" width="300" />
+</p>
 
 ### View Old Requests
 The user can view his old requests in the web interface.
 He can see the recipes, receipts, and directions for his old requests.
-![old_requests](media/old_requests.png)
+
+<p align="center">
+  <img src="media/old_requests.png" alt="Old requests screen" width="300" />
+</p>

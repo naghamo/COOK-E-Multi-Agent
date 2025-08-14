@@ -22,8 +22,7 @@
 ![output5](media/output5.png)
  
 ### The receipts PDF
-
-![pdf5](media/pdf5.png)
+<img src="media/pdf5.png" alt="Old requests screen" width="500" />
 
 ### The recipe
 

@@ -335,6 +335,7 @@ Your task is to generate a **suitable recipe** that matches the user's preferenc
   - Allergies and intolerances (nuts, dairy, shellfish, etc.)
   - Any preferences listed in the request json (in raw_text too)
 
+
 - **Substitution Examples**:
   - Kosher/Halal: Replace pork with beef, chicken, or turkey
   - Vegan: Use plant milk instead of dairy, aquafaba instead of eggs
@@ -342,13 +343,9 @@ Your task is to generate a **suitable recipe** that matches the user's preferenc
   - Gluten-free: Use almond flour instead of wheat flour
   - Keto: Replace sugar with stevia, use cauliflower instead of rice
 
-- **Ingredient Removal**: You may remove ingredients that the user specifically forbids (e.g., "no mushrooms"), but ONLY when:
-  - The user explicitly requests the removal
-  - You are confident the removal won't compromise the dish's core identity or quality
-  - The ingredient isn't structurally essential (e.g., don't remove flour from bread)
+- **Ingredient Removal**: You may remove ingredients that the user specifically forbids (e.g., "no mushrooms" as toppings for pizza)
 
-- **Quality Preservation**: All modifications must:
-  - Maintain the dish's fundamental character and appeal
+- **Quality Preservation**: All modifications should:
   - Preserve cooking techniques and timing when possible
   - Use substitutions that work functionally in the recipe
   - Consider flavor balance and texture
@@ -359,7 +356,7 @@ Your task is to generate a **suitable recipe** that matches the user's preferenc
   - Any cooking adjustments needed due to changes
   - Warnings about texture or flavor differences
 
-**IMPORTANT**: Only make modifications that are explicitly requested or clearly necessary for stated restrictions. Don't make unnecessary changes to perfectly suitable recipes.
+When a recipe already matches all user requirements perfectly, minimal to no changes are needed.
 
 Ignore logistics fields entirely, like:
 • delivery / pickup  
@@ -384,7 +381,7 @@ Tool-use rules  (MAX 3 calls)
    • If they contain forbidden ingredients that can be simply omitted or swapped, **keep the hit and edit it** instead of excluding those ingredients in the filter.  
    • Otherwise, try a refined search by adding appropriate `include` and/or `exclude` keywords in `query_params` to narrow the results.  
 3. If you find a candidate recipe but think it could be improved, you may make **one additional refinement call** (e.g., adjust filters or include extra keywords) to try and get a better match.  
-4. You may make at most **3 total calls**. If you find a suitable recipe, or recipe with simple substitutions, work with it. Otherwise return the *Not feasible* JSON.
+4. You may make at most **3 total calls**. If you find a suitable recipe, or recipe that can be changed to suit a user, work with it. Otherwise return the *Not feasible* JSON.
 
 Return EXACTLY ONE of the following JSON schemas. Start the response with ```json and end it with ```.
 Feasible recipe
@@ -416,7 +413,7 @@ Graceful fallback & leniency (added, without changing any requirements)
 ----------------------------------------------------------------------
 
 **When requests are simple, underspecified, or casually phrased:**
-- Prefer returning a **Feasible recipe** with reasonable defaults over *Not feasible*, as long as the dish's core identity is preserved.
+- Prefer returning a **Feasible recipe** with reasonable defaults over *Not feasible*, as long as the dish is not fundamentally different.
 - If the upstream JSON lacks detail (e.g., only a dish name), choose a **well-known, canonical variant** of that dish and state any assumptions in *notes*.
 
 **Assumption defaults (use only when necessary, and record in notes):**
@@ -426,7 +423,7 @@ Graceful fallback & leniency (added, without changing any requirements)
 
 **Close-match policy (soften exactness):**
 - If no hit exactly matches constraints within the allowed calls, but a **near match** can be adapted via straightforward substitutions/removals, **adapt it** and return *Feasible* with clear notes.
-- Use *Not feasible* **only** when constraints are inherently contradictory, unsafe, or would destroy the dish’s core technique/structure.
+- Use *Not feasible* only when the dish would become fundamentally different or unrecognizable.
 
 **Variant offering (optional, when one conflict remains):**
 - If a single constraint prevents a perfect match, you may:
@@ -439,6 +436,20 @@ Graceful fallback & leniency (added, without changing any requirements)
 **Clarity & transparency:**
 - In *notes*, explicitly list: assumptions, simple swaps, and any trade-offs (flavor/texture).
 - Keep modifications minimal and functional; do not over-engineer.
+
+**DEFAULT BEHAVIOR: Always try to return "feasible: true" with modifications you suggest, rather than "feasible: false".**
+When in doubt between modifying a recipe vs marking it infeasible, choose modification and document your changes clearly.
+
+**FEASIBLE MEANS:**
+- You found ANY recipe that can be adapted to the user's needs
+- Simple ingredient swaps can accommodate restrictions  
+- The core cooking method/technique can remain similar
+- The dish will still taste good after modifications
+
+**NOT FEASIBLE ONLY MEANS:**
+- You cannot generate a recipe, or no recipes exist for this type of dish at all
+- The user's restrictions make the dish impossible (e.g., "gluten-free bread while not allowing no flour substitutes")
+- The request is contradictory (e.g., "vegan meat-only dish")
 
 """.strip())
 
@@ -518,9 +529,14 @@ if __name__ == "__main__":
         "error": None
     }
 
+    req_new = {'food_name': 'banana bread', 'people': 6, 'delivery': 'delivery',
+     'special_requests': 'super moist and not too sweet', 'budget': None,
+     'raw_text': 'I miss banana bread, but I have celiac disease. I like it super moist and not too sweet. Can you give recipe for 6 with delivery to home? Make any necessary substitutions.',
+     'extra_fields': {'dietary_restrictions': 'gluten-free', 'original_food_name': None}, 'error': None}
+
     print("\n=== Request 1 ===")
-    print(json.dumps(req1, indent=2, ensure_ascii=False))
-    print("\nAgent response:\n", retrieve_recipe(req1))
+    print(json.dumps(req_new, indent=2, ensure_ascii=False))
+    print("\nAgent response:\n", retrieve_recipe(req_new))
 
     # print("\n=== Request 2 ===")
     # print(json.dumps(req2, indent=2, ensure_ascii=False))
